@@ -10,37 +10,114 @@ import Badge from '@mui/material/Badge';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Alert from '@mui/material/Alert';
+import Divider from '@mui/material/Divider';
 
 // Ícones
 import EditIcon from '@mui/icons-material/Edit';
+import SaveIcon from '@mui/icons-material/Save';
+
+// Interface para o payload de atualização
+interface IUserPayload {
+    name: string;
+    email: string;
+    photoURL?: string;
+    password?: string;
+}
 
 export const MeuPerfilPage = () => {
-    const { user, updateUser } = useAuth(); // Busca os dados e a função de atualização
+    const { user, updateUser } = useAuth(); 
 
-    // Estados para os campos do formulário (inicializados com os dados do utilizador)
+    // Estados
     const [nome, setNome] = useState(user?.name || '');
     const [email, setEmail] = useState(user?.email || '');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    
+    // Imagem (Apenas visual local por enquanto)
     const [photoPreview, setPhotoPreview] = useState<string | null>(user?.photoURL || null);
-    const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+    
+    // Feedback
+    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [loading, setLoading] = useState(false);
 
-    // Função para lidar com a mudança da imagem
+    // Helper de Auth
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+    };
+
     const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
             const file = event.target.files[0];
             const previewUrl = URL.createObjectURL(file);
-            setPhotoPreview(previewUrl); // Atualiza a pré-visualização da imagem
+            setPhotoPreview(previewUrl); 
         }
     };
 
-    // Função para salvar as alterações
-    const handleSave = () => {
-        updateUser({ name: nome, email: email, photoURL: photoPreview || undefined });
-        setShowSuccessMessage(true); // Mostra a mensagem de sucesso
-        // Remove a mensagem após alguns segundos
-        setTimeout(() => {
-            setShowSuccessMessage(false);
-        }, 4000);
-        console.log("Alterações salvas (simulado)!", { nome, email, photoPreview });
+    const handleSave = async () => {
+        setMessage(null);
+        
+        // Validação básica
+        if (!nome || !email) {
+            setMessage({ type: 'error', text: "Nome e Email são obrigatórios." });
+            return;
+        }
+
+        if (password && password !== confirmPassword) {
+            setMessage({ type: 'error', text: "As senhas não coincidem." });
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            // 1. CORREÇÃO: Usando a interface em vez de any
+            const payload: IUserPayload = {
+                name: nome,
+                email: email,
+                // photoURL: photoPreview // Descomente se o backend suportar salvar URL
+            };
+
+            // Só envia senha se o usuário digitou algo
+            if (password) {
+                payload.password = password;
+            }
+
+            // 2. Envia para o Backend (PUT /users/:id)
+            if (!user?.id) throw new Error("ID do usuário não encontrado.");
+
+            const response = await fetch(`http://localhost:3000/users/${user.id}`, {
+                method: 'PUT',
+                headers: getAuthHeaders(),
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error("Erro ao atualizar perfil.");
+            }
+
+            // 3. Atualiza o Contexto Global (Frontend)
+            updateUser({ 
+                name: nome, 
+                email: email, 
+                photoURL: photoPreview || undefined 
+            });
+
+            setMessage({ type: 'success', text: "Perfil atualizado com sucesso!" });
+            
+            // Limpa campos de senha
+            setPassword('');
+            setConfirmPassword('');
+
+        } catch (error) {
+            console.error("Erro ao salvar:", error);
+            setMessage({ type: 'error', text: "Falha ao salvar alterações. Tente novamente." });
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -52,29 +129,28 @@ export const MeuPerfilPage = () => {
             <Paper elevation={3} sx={{ p: 4, maxWidth: 600, mx: 'auto' }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
 
-                    {/* Secção da Foto de Perfil */}
+                    {/* Foto de Perfil */}
                     <Badge
                         overlap="circular"
                         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                         badgeContent={
-                            <Tooltip title="Alterar foto">
+                            <Tooltip title="Alterar foto (Visual)">
                                 <IconButton component="label" sx={{ bgcolor: 'background.paper', border: '1px solid lightgray' }}>
                                     <EditIcon fontSize="small" />
-                                    {/* O input de ficheiro fica escondido mas é ativado pelo IconButton */}
                                     <input type="file" hidden accept="image/*" onChange={handleImageChange} />
                                 </IconButton>
                             </Tooltip>
                         }
                     >
                         <Avatar 
-                            sx={{ width: 120, height: 120, fontSize: '3rem' }}
+                            sx={{ width: 120, height: 120, fontSize: '3rem', bgcolor: 'primary.main' }}
                             src={photoPreview || undefined}
                         >
                             {user?.name?.charAt(0).toUpperCase()}
                         </Avatar>
                     </Badge>
                     
-                    {/* Campos de Informação */}
+                    {/* Dados Pessoais */}
                     <TextField
                         fullWidth
                         label="Nome Completo"
@@ -88,22 +164,45 @@ export const MeuPerfilPage = () => {
                         onChange={(e) => setEmail(e.target.value)}
                     />
 
-                    {/* Botão de Salvar */}
-                    <Button variant="contained" sx={{ mt: 2 }} onClick={handleSave}>
-                        Salvar Alterações
+                    <Divider sx={{ width: '100%', my: 1 }}>Alterar Senha (Opcional)</Divider>
+
+                    <TextField
+                        fullWidth
+                        label="Nova Senha"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Deixe em branco para manter a atual"
+                    />
+                    <TextField
+                        fullWidth
+                        label="Confirmar Nova Senha"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        disabled={!password}
+                    />
+
+                    {/* Mensagens de Feedback */}
+                    {message && (
+                        <Alert severity={message.type} sx={{ width: '100%' }}>
+                            {message.text}
+                        </Alert>
+                    )}
+
+                    {/* Botão Salvar */}
+                    <Button 
+                        variant="contained" 
+                        size="large"
+                        startIcon={<SaveIcon />}
+                        onClick={handleSave}
+                        disabled={loading}
+                        sx={{ mt: 1, px: 4 }}
+                    >
+                        {loading ? "Salvando..." : "Salvar Alterações"}
                     </Button>
                 </Box>
             </Paper>
-
-            {/* --- INÍCIO DA NOVA MENSAGEM DE SUCESSO --- */}
-            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-                {showSuccessMessage && (
-                    <Alert severity="success" sx={{ mt: 2 }}>
-                        Perfil atualizado com sucesso!
-                    </Alert>
-                )}
-            </Box>
-            {/* --- FIM DA NOVA MENSAGEM --- */}
         </Box>
-        );
-    }
+    );
+};

@@ -1,8 +1,8 @@
-import { useState, useContext } from 'react'; // Importa useContext
+import { useState, useContext } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ColorModeContext } from '../contexts/ThemeContext';
-import { useNotifications, type INotification } from '../contexts/NotificationContext'; // Importa o hook e o tipo
+import { useNotifications, type INotification } from '../contexts/NotificationContext';
 
 // Importações do Material-UI
 import Box from '@mui/material/Box';
@@ -36,9 +36,8 @@ import HomeIcon from '@mui/icons-material/Home';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import PeopleIcon from '@mui/icons-material/People';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+// AttachMoneyIcon e AssessmentIcon foram removidos
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import AssessmentIcon from '@mui/icons-material/Assessment';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -46,18 +45,16 @@ import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
-
 const drawerWidthOpen = 240;
 const drawerWidthClosed = 60;
 
+// Lista de navegação atualizada (Sem Financeiro e Relatórios)
 const navItems = [
   { text: 'Início', icon: <HomeIcon />, path: '/' },
   { text: 'Agendamentos', icon: <CalendarTodayIcon />, path: '/agendamentos' },
   { text: 'Agenda Profissional', icon: <EventNoteIcon />, path: '/agenda-profissional' },
   { text: 'Pacientes', icon: <PeopleIcon />, path: '/pacientes' },
-  { text: 'Financeiro', icon: <AttachMoneyIcon />, path: '/financeiro' },
   { text: 'Tarefas', icon: <TaskAltIcon />, path: '/tarefas' },
-  { text: 'Relatórios', icon: <AssessmentIcon />, path: '/relatorios' },
 ];
 
 export const Layout = () => {
@@ -66,11 +63,9 @@ export const Layout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   
-  // --- LÓGICA DE NOTIFICAÇÕES (AGORA VEM DO CONTEXTO) ---
   const { notificacoes, unreadCount, markAllAsRead, clearAll, markAsRead } = useNotifications();
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<INotification | null>(null);
-  // --- FIM DA LÓGICA DE NOTIFICAÇÕES ---
   
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -84,7 +79,6 @@ export const Layout = () => {
   const handleOpenProfileMenu = (event: React.MouseEvent<HTMLElement>) => setProfileAnchorEl(event.currentTarget);
   const handleCloseProfileMenu = () => setProfileAnchorEl(null);
 
-  // Handlers para o modal de leitura
   const handleOpenNotificationModal = (notification: INotification) => {
     markAsRead(notification.id);
     setSelectedNotification(notification);
@@ -198,8 +192,6 @@ export const Layout = () => {
         </Toolbar>
       </AppBar>
 
-      {/* Menus Pop-up */}
-      {/* Menu de Notificações (Consome o contexto) */}
       <Menu
         anchorEl={notificationAnchorEl}
         open={Boolean(notificationAnchorEl)}
@@ -252,7 +244,6 @@ export const Layout = () => {
         </MenuItem>
       </Menu>
 
-      {/* BARRA LATERAL (SIDEBAR) */}
       <Drawer
         variant="temporary"
         open={mobileOpen}
@@ -284,7 +275,6 @@ export const Layout = () => {
         {drawerContent}
       </Drawer>
 
-      {/* ÁREA DE CONTEÚDO PRINCIPAL */}
       <Box 
         component="main" 
         sx={{ 
@@ -301,7 +291,6 @@ export const Layout = () => {
         <Outlet />
       </Box>
 
-      {/* Modal de Leitura de Notificação */}
       <Dialog open={isNotificationModalOpen} onClose={handleCloseNotificationModal}>
         <DialogTitle>Detalhes da Notificação</DialogTitle>
         <DialogContent>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
@@ -11,16 +11,14 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemButton from '@mui/material/ListItemButton';
 import Divider from '@mui/material/Divider';
-import Tooltip from '@mui/material/Tooltip'; // Importação que faltava
+import Tooltip from '@mui/material/Tooltip';
 
-// Importações do FullCalendar
+// FullCalendar
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import ptBrLocale from '@fullcalendar/core/locales/pt-br';
-
-// Tipos do FullCalendar que vamos usar
 import { type EventClickArg, type DateSelectArg, type EventDropArg, type EventContentArg } from '@fullcalendar/core';
 
 // Ícones
@@ -31,30 +29,14 @@ import CancelIcon from '@mui/icons-material/CancelOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
-// O nosso componente de Modal
+// Modal
 import { AgendamentoFormModal } from '../components/AgendamentoFormModal';
 
-// Tipos e Interfaces
+// Tipos
 type StatusAgendamento = 'Pendente' | 'Confirmado' | 'Realizado' | 'Cancelado';
 
-interface IPaciente {
-    id: number;
-    nome: string;
-}
-interface IProfissional {
-    id: number;
-    nome: string;
-}
-
-const PACIENTES_EXEMPLO: IPaciente[] = [
-    { id: 1, nome: 'Ana Clara Sousa' },
-    { id: 2, nome: 'Lucas Ferreira Lima' },
-    { id: 3, nome: 'Mariana Costa e Silva' },
-];
-const PROFISSIONAIS_EXEMPLO: IProfissional[] = [
-    { id: 1, nome: 'Dr. João da Silva' },
-    { id: 2, nome: 'Dra. Maria Oliveira' },
-];
+interface IPaciente { id: number; nome: string; }
+interface IProfissional { id: number; nome: string; }
 
 interface IEvento {
     id: string;
@@ -68,21 +50,19 @@ interface IEvento {
 }
 
 const CORES_STATUS: Record<StatusAgendamento, string> = {
-    Pendente: '#f1dc1eff', // Amarelo (Texto Branco)
-    Confirmado: '#1773beff', // Azul (Texto Branco)
-    Realizado: '#0aa363ff', // Verde (Texto Branco)
-    Cancelado: '#b61313ff', // Vermelho (Texto Branco)
+    Pendente: '#f1dc1eff',
+    Confirmado: '#1773beff',
+    Realizado: '#0aa363ff',
+    Cancelado: '#b61313ff',
 };
 
-const DADOS_INICIAIS: IEvento[] = [
-    { id: '1', start: '2025-10-21T10:30:00', status: 'Confirmado', pacienteId: 1, profissionalId: 1 },
-    { id: '2', start: '2025-10-22T14:00:00', end: '2025-10-22T15:00:00', status: 'Realizado', pacienteId: 2, profissionalId: 2 },
-    { id: '3', start: '2025-10-23', status: 'Cancelado', pacienteId: 3, profissionalId: 1, pendenciaUnimed: true },
-    { id: '4', start: '2025-10-23T11:00:00', status: 'Pendente', pacienteId: 1, profissionalId: 2 },
-];
-
 export const AgendamentosPage = () => {
-    const [agendamentos, setAgendamentos] = useState<IEvento[]>(DADOS_INICIAIS);
+    // Estados de Dados (Vindos do Backend)
+    const [agendamentos, setAgendamentos] = useState<IEvento[]>([]);
+    const [listaPacientes, setListaPacientes] = useState<IPaciente[]>([]);
+    const [listaProfissionais, setListaProfissionais] = useState<IProfissional[]>([]);
+
+    // Estados de UI
     const [filtroStatus, setFiltroStatus] = useState<StatusAgendamento | 'Todos'>('Todos');
     const [filtroPacienteId, setFiltroPacienteId] = useState<number | 'Todos'>('Todos');
     const [filtroProfissionalId, setFiltroProfissionalId] = useState<number | 'Todos'>('Todos');
@@ -91,6 +71,50 @@ export const AgendamentosPage = () => {
     const [dataSelecionada, setDataSelecionada] = useState('');
     const [popoverAnchorEl, setPopoverAnchorEl] = useState<HTMLElement | null>(null);
     const [eventoSelecionadoPopover, setEventoSelecionadoPopover] = useState<IEvento | null>(null);
+
+    // --- Helper de Autenticação ---
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+    };
+
+    // --- Carregamento Inicial (Agendamentos + Pacientes + Profissionais) ---
+    const carregarTudo = async () => {
+        try {
+            const headers = getAuthHeaders();
+            
+            const [resAgendamentos, resPacientes, resProfissionais] = await Promise.all([
+                fetch('http://localhost:3000/appointments', { headers }),
+                fetch('http://localhost:3000/patients', { headers }),
+                fetch('http://localhost:3000/professionals', { headers })
+            ]);
+
+            if (resAgendamentos.ok) {
+                const data = await resAgendamentos.json();
+                if(Array.isArray(data)) setAgendamentos(data);
+            }
+            if (resPacientes.ok) {
+                const data = await resPacientes.json();
+                if(Array.isArray(data)) setListaPacientes(data);
+            }
+            if (resProfissionais.ok) {
+                const data = await resProfissionais.json();
+                if(Array.isArray(data)) setListaProfissionais(data);
+            }
+
+        } catch (error) {
+            console.error("Erro ao carregar dados:", error);
+        }
+    };
+
+    useEffect(() => {
+        carregarTudo();
+    }, []);
+
+    // --- Handlers do FullCalendar ---
 
     const handleDateSelect = (selectInfo: DateSelectArg) => {
         setDataSelecionada(selectInfo.startStr + 'T09:00');
@@ -102,50 +126,110 @@ export const AgendamentosPage = () => {
         const eventoId = clickInfo.event.id;
         const evento = agendamentos.find(ag => ag.id === eventoId);
         if (evento) {
-        setEventoSelecionadoPopover(evento);
-        setPopoverAnchorEl(clickInfo.el);
+            setEventoSelecionadoPopover(evento);
+            setPopoverAnchorEl(clickInfo.el);
         }
-    };
-    
-    const handleFecharModal = () => {
-        setIsModalOpen(false);
-    };
-
-    const handleSalvarAgendamento = (dadosDoEvento: { id?: string, title?: string, start: string, end?: string, status: string, pacienteId?: number | null, profissionalId?: number | null | null, pendenciaUnimed?: boolean }) => {
-        if (dadosDoEvento.id) {
-            setAgendamentos(agendamentosAtuais =>
-                agendamentosAtuais.map(ag =>
-                    ag.id === dadosDoEvento.id ? { ...ag, ...dadosDoEvento } as IEvento : ag
-                )
-            );
-        } else {
-            const novoId = String(Date.now());
-            const novoAgendamento: IEvento = {
-                id: novoId,
-                start: dadosDoEvento.start,
-                end: dadosDoEvento.end,
-                status: dadosDoEvento.status as StatusAgendamento,
-                pacienteId: dadosDoEvento.pacienteId || null,
-                profissionalId: dadosDoEvento.profissionalId || null,
-                pendenciaUnimed: dadosDoEvento.pendenciaUnimed || false,
-            };
-            setAgendamentos(agendamentosAtuais => [...agendamentosAtuais, novoAgendamento]);
-        }
-        handleFecharModal();
     };
 
     const handleEventDrop = (dropInfo: EventDropArg) => {
-        setAgendamentos(agendamentosAtuais => 
-            agendamentosAtuais.map(ag => 
-                ag.id === dropInfo.event.id 
-                    ? { 
-                        ...ag, 
-                        start: dropInfo.event.startStr, 
-                        end: dropInfo.event.endStr || undefined
-                      } 
-                    : ag
-            )
-        );
+        const agendamentoId = dropInfo.event.id;
+        const novasDatas = {
+            start: dropInfo.event.startStr,
+            end: dropInfo.event.endStr || undefined
+        };
+
+        setAgendamentos(prev => prev.map(ag => 
+            ag.id === agendamentoId ? { ...ag, ...novasDatas } : ag
+        ));
+
+        fetch(`http://localhost:3000/appointments/${agendamentoId}`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(novasDatas)
+        }).catch(err => {
+            console.error("Erro ao mover evento:", err);
+            alert("Erro ao mover agendamento. Recarregando...");
+            carregarTudo();
+        });
+    };
+
+    // --- Handlers de CRUD ---
+
+    // CORREÇÃO AQUI: Tipagem explícita em vez de 'any'
+    const handleSalvarAgendamento = (dados: { 
+        id?: string;
+        title?: string;
+        start: string;
+        end?: string;
+        status: string;
+        pacienteId?: number | null;
+        profissionalId?: number | null;
+        pendenciaUnimed?: boolean;
+    }) => {
+        const headers = getAuthHeaders();
+        const payload = {
+            ...dados,
+            pacienteId: Number(dados.pacienteId),
+            profissionalId: Number(dados.profissionalId),
+            pendenciaUnimed: Boolean(dados.pendenciaUnimed)
+        };
+
+        if (dados.id) {
+            // Edição
+            fetch(`http://localhost:3000/appointments/${dados.id}`, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify(payload)
+            }).then(res => {
+                if(res.ok) {
+                    carregarTudo();
+                    setIsModalOpen(false);
+                } else alert("Erro ao editar.");
+            });
+        } else {
+            // Criação
+            fetch('http://localhost:3000/appointments', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(payload)
+            }).then(res => {
+                if(res.ok) {
+                    carregarTudo();
+                    setIsModalOpen(false);
+                } else alert("Erro ao criar.");
+            });
+        }
+    };
+
+    const handleChangeStatusDoPopover = (novoStatus: StatusAgendamento) => {
+        if (!eventoSelecionadoPopover) return;
+        
+        fetch(`http://localhost:3000/appointments/${eventoSelecionadoPopover.id}`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ status: novoStatus })
+        }).then(res => {
+            if(res.ok) {
+                setAgendamentos(prev => prev.map(ag => 
+                    ag.id === eventoSelecionadoPopover.id ? { ...ag, status: novoStatus } : ag
+                ));
+            }
+        });
+        handleClosePopover();
+    };
+
+    const handleApagarDoPopover = () => {
+        if (eventoSelecionadoPopover && window.confirm('Excluir agendamento?')) {
+            fetch(`http://localhost:3000/appointments/${eventoSelecionadoPopover.id}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            }).then(res => {
+                if(res.ok) {
+                    setAgendamentos(prev => prev.filter(ag => ag.id !== eventoSelecionadoPopover.id));
+                }
+            });
+        }
+        handleClosePopover();
     };
 
     const handleClosePopover = () => {
@@ -161,23 +245,11 @@ export const AgendamentosPage = () => {
         handleClosePopover();
     };
 
-    const handleChangeStatusDoPopover = (novoStatus: StatusAgendamento) => {
-        if (eventoSelecionadoPopover) {
-            setAgendamentos(agendamentosAtuais => agendamentosAtuais.map(ag => 
-                ag.id === eventoSelecionadoPopover.id ? { ...ag, status: novoStatus } : ag
-            ));
-        }
-        handleClosePopover();
+    const handleFecharModal = () => {
+        setIsModalOpen(false);
     };
 
-    const handleApagarDoPopover = () => {
-        if (eventoSelecionadoPopover) {
-            if (window.confirm('Tem a certeza que deseja excluir este agendamento?')) {
-                setAgendamentos(agendamentosAtuais => agendamentosAtuais.filter(ag => ag.id !== eventoSelecionadoPopover!.id));
-            }
-        }
-        handleClosePopover();
-    };
+    // --- Lógica de Renderização ---
 
     const agendamentosFiltrados = agendamentos.filter(ag => 
         (filtroStatus === 'Todos' || ag.status === filtroStatus) &&
@@ -186,14 +258,14 @@ export const AgendamentosPage = () => {
     ).map(ag => {
         let displayTitle = ag.title;
         if (!displayTitle) {
-            const paciente = PACIENTES_EXEMPLO.find(p => p.id === ag.pacienteId);
-            const profissional = PROFISSIONAIS_EXEMPLO.find(p => p.id === ag.profissionalId);
-            displayTitle = `${paciente?.nome || '?'} c/ ${profissional?.nome || '?'}`;
+            const paciente = listaPacientes.find(p => p.id === ag.pacienteId);
+            const profissional = listaProfissionais.find(p => p.id === ag.profissionalId);
+            displayTitle = `${paciente?.nome || 'Desconhecido'} c/ ${profissional?.nome || '?'}`;
         }
         return {
             ...ag,
             title: displayTitle,
-            backgroundColor: CORES_STATUS[ag.status], // Cor baseada no status
+            backgroundColor: CORES_STATUS[ag.status],
             borderColor: CORES_STATUS[ag.status],
         }
     });
@@ -206,118 +278,62 @@ export const AgendamentosPage = () => {
     const realizadosHoje = agendamentosDeHoje.filter(ag => ag.status === 'Realizado').length;
     const canceladosHoje = agendamentosDeHoje.filter(ag => ag.status === 'Cancelado').length;
 
-
-    // --- INÍCIO DA ADIÇÃO DOS ESTILOS CSS ---
     const estilosCalendario = `
-        /* Força os eventos a ocupar a altura disponível e ajusta o conteúdo */
-        .fc-daygrid-event-harness, /* Container principal na vista mensal */
-        .fc-timegrid-event-harness > .fc-timegrid-event { /* Container principal nas vistas semana/dia */
-            height: auto !important;
-            min-height: 35px !important;
-            display: flex !important;
-            margin: 1px 0 !important;
+        .fc-daygrid-event-harness, .fc-timegrid-event-harness > .fc-timegrid-event {
+            height: auto !important; min-height: 35px !important; display: flex !important; margin: 1px 0 !important;
         }
-
-        .fc-daygrid-event, .fc-timegrid-event {
-            width: 100% !important;
-            padding: 0 !important;
-            border: none !important;
-            display: flex !important; /* Importante para o conteúdo interno */
-        }
-        
-        /* Garante que o nosso Box interno ocupe todo o espaço do evento */
-        .fc-event-main, .fc-event-main-frame {
-            height: 100%;
-            width: 100%;
-            display: block !important;
-        }
-        .fc-event-main-frame > .MuiBox-root { 
-            height: 100%;
-            width: 100%; /* Garante que o Box ocupe toda a largura */
-            box-sizing: border-box; 
-        }
-
-        /* Cores de fundo e texto por status */
+        .fc-daygrid-event, .fc-timegrid-event { width: 100% !important; padding: 0 !important; border: none !important; display: flex !important; }
+        .fc-event-main, .fc-event-main-frame { height: 100%; width: 100%; display: block !important; }
+        .fc-event-main-frame > .MuiBox-root { height: 100%; width: 100%; box-sizing: border-box; }
         .fc-event-pendente { background-color: ${CORES_STATUS.Pendente} !important; color: #fff !important; }
         .fc-event-confirmado { background-color: ${CORES_STATUS.Confirmado} !important; color: #fff !important; }
         .fc-event-realizado { background-color: ${CORES_STATUS.Realizado} !important; color: #fff !important; }
         .fc-event-cancelado { background-color: ${CORES_STATUS.Cancelado} !important; color: #fff !important; }
-        
-        /* Ajusta a cor do ícone de pendência */
         .fc-event-pendente .MuiSvgIcon-root { color: #333 !important; }
-        .fc-event-confirmado .MuiSvgIcon-root,
-        .fc-event-realizado .MuiSvgIcon-root,
-        .fc-event-cancelado .MuiSvgIcon-root { color: #fff !important; }
+        .fc-event-confirmado .MuiSvgIcon-root, .fc-event-realizado .MuiSvgIcon-root, .fc-event-cancelado .MuiSvgIcon-root { color: #fff !important; }
     `;
-    // --- FIM DA ADIÇÃO ---
 
-    // Função para customizar o conteúdo do evento no calendário (SIMPLIFICADA)
     const renderEventContent = (eventInfo: EventContentArg) => {
-      const paciente = PACIENTES_EXEMPLO.find(p => p.id === Number(eventInfo.event.extendedProps.pacienteId));
-      const nomePaciente = paciente ? paciente.nome : 'Paciente?';
-      const pendencia = eventInfo.event.extendedProps.pendenciaUnimed;
+        const paciente = listaPacientes.find(p => p.id === Number(eventInfo.event.extendedProps.pacienteId));
+        const nomePaciente = paciente ? paciente.nome : 'Paciente?';
+        const pendencia = eventInfo.event.extendedProps.pendenciaUnimed;
 
-      return (
-        // Removemos os estilos de cor/fundo/altura daqui
-        <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.75rem', p: '2px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <b>{eventInfo.timeText}</b>
-              {pendencia && (
-                  <Tooltip title="Pendência Unimed">
-                      {/* O CSS irá definir a cor do ícone */}
-                      <WarningAmberIcon sx={{ fontSize: '1rem', marginLeft: '4px' }}/> 
-                  </Tooltip>
-              )}
-          </Box>
-          <span>{nomePaciente}</span>
-        </Box>
-      );
+        return (
+            <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.75rem', p: '2px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <b>{eventInfo.timeText}</b>
+                    {pendencia && <Tooltip title="Pendência Unimed"><WarningAmberIcon sx={{ fontSize: '1rem', marginLeft: '4px' }}/></Tooltip>}
+                </Box>
+                <span>{nomePaciente}</span>
+            </Box>
+        );
     };
 
     return (
-        // Adicionamos React.Fragment e a tag <style>
         <>
           <style>{estilosCalendario}</style>
           <Box>
-              {/* CABEÇALHO DA PÁGINA */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="h4" component="h1">
-                      Painel de Agendamentos
-                  </Typography>
-                  <Button
-                      variant="contained"
-                      startIcon={<AddIcon />}
-                      onClick={() => {
-                          setDataSelecionada('');
-                          setEventoParaEditar(null);
-                          setIsModalOpen(true);
-                      }}
-                  >
+                  <Typography variant="h4" component="h1">Painel de Agendamentos</Typography>
+                  <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setDataSelecionada(''); setEventoParaEditar(null); setIsModalOpen(true); }}>
                       Novo Agendamento
                   </Button>
               </Box>
 
-              {/* CONTENTOR PRINCIPAL COM DUAS COLUNAS */}
               <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
-
-                  {/* COLUNA ESQUERDA: O CALENDÁRIO */}
                   <Box sx={{ flexGrow: 1 }}>
                       <Paper elevation={3} sx={{ p: 2 }}>
                           <FullCalendar
                               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                               initialView="dayGridMonth"
-                              headerToolbar={{
-                                  left: 'prev,next today',
-                                  center: 'title',
-                                  right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                              }}
+                              headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }}
                               events={agendamentosFiltrados.map(ag => ({ 
                                   id: ag.id,
                                   title: ag.title,
                                   start: ag.start,
                                   end: ag.end,
-                                  backgroundColor: ag.backgroundColor, // Passa a cor
-                                  borderColor: ag.borderColor,     // Passa a cor
+                                  backgroundColor: ag.backgroundColor,
+                                  borderColor: ag.borderColor,
                                   extendedProps: {
                                     status: ag.status,
                                     pacienteId: ag.pacienteId,
@@ -325,11 +341,7 @@ export const AgendamentosPage = () => {
                                     pendenciaUnimed: ag.pendenciaUnimed,
                                   } 
                               }))}
-                              eventContent={renderEventContent} // Renderiza o conteúdo interno
-                              eventClassNames={(arg) => { // Adiciona a classe CSS para o container
-                                  const statusClass = `fc-event-${arg.event.extendedProps.status?.toLowerCase() || 'default'}`;
-                                  return [statusClass];
-                              }}
+                              eventContent={renderEventContent}
                               locale={ptBrLocale}
                               editable={true}
                               selectable={true}
@@ -338,52 +350,30 @@ export const AgendamentosPage = () => {
                               eventDrop={handleEventDrop}
                               dayMaxEvents={true}
                               height="75vh"
-                              eventTimeFormat={{
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                  hour12: false
-                              }}
+                              eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
                           />
                       </Paper>
                   </Box>
 
-                  {/* COLUNA DIREITA: FILTROS E RESUMO */}
                   <Box sx={{ width: { xs: '100%', md: '280px' }, flexShrink: 0 }}>
-                      
                       <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
                           <Typography variant="h6" gutterBottom>Filtrar por</Typography>
                           <Autocomplete
-                              id="filtro-paciente-autocomplete"
-                              options={[{ id: 'Todos' as const, nome: 'Todos os Pacientes' }, ...PACIENTES_EXEMPLO]} 
+                              id="filtro-paciente"
+                              options={[{ id: 'Todos' as const, nome: 'Todos os Pacientes' }, ...listaPacientes]} 
                               getOptionLabel={(option) => option.nome}
-                              value={
-                                  filtroPacienteId === 'Todos' 
-                                      ? { id: 'Todos', nome: 'Todos os Pacientes' } 
-                                      : PACIENTES_EXEMPLO.find(p => p.id === filtroPacienteId) || null
-                              }
-                              onChange={(_event, newValue) => {
-                                  setFiltroPacienteId(newValue ? (newValue.id as number | 'Todos') : 'Todos'); 
-                              }}
-                              renderInput={(params) => (
-                                  <TextField {...params} label="Paciente" variant="outlined" size="small" />
-                              )}
+                              value={filtroPacienteId === 'Todos' ? { id: 'Todos', nome: 'Todos os Pacientes' } : listaPacientes.find(p => p.id === filtroPacienteId) || null}
+                              onChange={(_event, newValue) => setFiltroPacienteId(newValue ? (newValue.id as number | 'Todos') : 'Todos')}
+                              renderInput={(params) => <TextField {...params} label="Paciente" variant="outlined" size="small" />}
                               sx={{ mb: 2 }}
                           />
                           <Autocomplete
-                              id="filtro-profissional-autocomplete"
-                              options={[{ id: 'Todos' as const, nome: 'Todos os Profissionais' }, ...PROFISSIONAIS_EXEMPLO]} 
+                              id="filtro-profissional"
+                              options={[{ id: 'Todos' as const, nome: 'Todos os Profissionais' }, ...listaProfissionais]} 
                               getOptionLabel={(option) => option.nome}
-                              value={
-                                  filtroProfissionalId === 'Todos'
-                                      ? { id: 'Todos', nome: 'Todos os Profissionais' }
-                                      : PROFISSIONAIS_EXEMPLO.find(p => p.id === filtroProfissionalId) || null
-                              }
-                              onChange={(_event, newValue) => {
-                                  setFiltroProfissionalId(newValue ? (newValue.id as number | 'Todos') : 'Todos'); 
-                              }}
-                              renderInput={(params) => (
-                                  <TextField {...params} label="Profissional" variant="outlined" size="small" />
-                              )}
+                              value={filtroProfissionalId === 'Todos' ? { id: 'Todos', nome: 'Todos os Profissionais' } : listaProfissionais.find(p => p.id === filtroProfissionalId) || null}
+                              onChange={(_event, newValue) => setFiltroProfissionalId(newValue ? (newValue.id as number | 'Todos') : 'Todos')}
+                              renderInput={(params) => <TextField {...params} label="Profissional" variant="outlined" size="small" />}
                           />
                       </Paper>
 
@@ -404,22 +394,19 @@ export const AgendamentosPage = () => {
                           <Typography sx={{ color: CORES_STATUS.Realizado }}>Realizados: {realizadosHoje}</Typography>
                           <Typography sx={{ color: CORES_STATUS.Cancelado }}>Cancelados: {canceladosHoje}</Typography>
                       </Paper>
-
                   </Box>
               </Box>
 
-              {/* O MODAL */}
               <AgendamentoFormModal
                   open={isModalOpen}
                   onClose={handleFecharModal}
                   onSave={handleSalvarAgendamento}
                   eventoParaEditar={eventoParaEditar}
                   dataSelecionada={dataSelecionada}
-                  pacientes={PACIENTES_EXEMPLO}
-                  profissionais={PROFISSIONAIS_EXEMPLO}
+                  pacientes={listaPacientes} 
+                  profissionais={listaProfissionais}
               />
 
-              {/* O POPOVER */}
               <Popover
                   open={Boolean(popoverAnchorEl)}
                   anchorEl={popoverAnchorEl}
@@ -452,6 +439,6 @@ export const AgendamentosPage = () => {
                   </List>
               </Popover>
           </Box>
-        </> // <-- FECHA O FRAGMENTO ADICIONADO
+        </>
     );
 };

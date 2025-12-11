@@ -1,42 +1,36 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+/* Removemos as margens padrão e garantimos altura total */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  width: 100%;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+/* Garante que a fonte padrão seja renderizada corretamente se o MUI falhar */
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+/* --- ESTILOS DE IMPRESSÃO --- */
+@media print {
+  /* Esconde tudo que tiver a classe 'no-print' (Sidebar, Botões, etc) */
+  .no-print {
+    display: none !important;
   }
-  to {
-    transform: rotate(360deg);
+
+  /* Garante que o papel use a largura total */
+  body, #root, .MuiBox-root, .MuiPaper-root {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important; /* Remove sombras para economizar tinta */
+    overflow: visible !important;
   }
-}
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
+  /* Ajustes específicos para garantir que fundos coloridos apareçam (opcional) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
 }

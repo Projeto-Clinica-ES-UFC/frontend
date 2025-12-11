@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
@@ -10,18 +11,31 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
+import CircularProgress from '@mui/material/CircularProgress';
 
 // Ícones
 import SearchIcon from '@mui/icons-material/Search';
 import PersonAddIcon from '@mui/icons-material/PersonAddAlt1';
 import EventIcon from '@mui/icons-material/Event';
 
+// Interfaces (Simplificadas para o Dashboard)
 interface Verse {
     text: string;
     reference: string;
 }
 
-// Versículo padrão para ser usado em caso de falha da API
+interface IEvento {
+    id: string;
+    start: string;
+    status: string;
+    pacienteId: number | null;
+}
+
+interface IPaciente {
+    id: number;
+    nome: string;
+}
+
 const VERSICULO_PADRAO: Verse = {
     text: "O Senhor é o meu pastor; de nada terei falta.",
     reference: "Salmos 23:1"
@@ -29,36 +43,100 @@ const VERSICULO_PADRAO: Verse = {
 
 export const HomePage = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    
+    // Estados de Dados
     const [verse, setVerse] = useState<Verse>({ text: 'Carregando versículo...', reference: '' });
+    const [agendamentos, setAgendamentos] = useState<IEvento[]>([]);
+    const [pacientes, setPacientes] = useState<IPaciente[]>([]);
+    const [loadingData, setLoadingData] = useState(true);
 
+    // 1. Carregar Versículo (API Externa)
     useEffect(() => {
         const fetchRandomVerse = async () => {
             try {
-                const apiUrl = `https://bible-api.com/data/almeida/random`;
-                const response = await fetch(apiUrl);
-                const data = await response.json();
-
-                // --- INÍCIO DA CORREÇÃO: Verificação de Segurança ---
-                // Verificamos se a resposta da API tem os campos que esperamos
+                const res = await fetch(`https://bible-api.com/data/almeida/random`);
+                const data = await res.json();
                 if (data && data.text && data.reference) {
-                    // Se sim, atualizamos o estado com o versículo recebido
                     setVerse({ text: data.text.trim(), reference: data.reference });
                 } else {
-                    // Se não, registamos o erro e usamos o versículo padrão
-                    console.error("Resposta da API inválida:", data);
                     setVerse(VERSICULO_PADRAO);
                 }
-                // --- FIM DA CORREÇÃO ---
-
             } catch (error) {
-                console.error("Erro ao buscar o versículo:", error);
-                // Se a chamada à API falhar, usamos o versículo padrão
+                console.error("Erro versículo:", error);
                 setVerse(VERSICULO_PADRAO);
             }
         };
-
         fetchRandomVerse();
     }, []);
+
+    // 2. Carregar Dados do Dashboard (Backend Próprio)
+    useEffect(() => {
+        const carregarDashboard = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const headers = { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` 
+                };
+
+                const [resAg, resPac] = await Promise.all([
+                    fetch('http://localhost:3000/appointments', { headers }),
+                    fetch('http://localhost:3000/patients', { headers })
+                ]);
+
+                if (resAg.ok) {
+                    const data = await resAg.json();
+                    if(Array.isArray(data)) setAgendamentos(data);
+                }
+                if (resPac.ok) {
+                    const data = await resPac.json();
+                    if(Array.isArray(data)) setPacientes(data);
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar dashboard:", error);
+            } finally {
+                setLoadingData(false);
+            }
+        };
+
+        carregarDashboard();
+    }, []);
+
+    // 3. Cálculos do Dashboard (Memorizados para performance)
+    const dashboardStats = useMemo(() => {
+        const hojeStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
+        const agora = new Date();
+
+        // Filtra agendamentos de hoje
+        const agendamentosHoje = agendamentos.filter(ag => ag.start.startsWith(hojeStr));
+
+        // Estatísticas de Hoje
+        const stats = {
+            confirmados: agendamentosHoje.filter(ag => ag.status === 'Confirmado').length,
+            pendentes: agendamentosHoje.filter(ag => ag.status === 'Pendente').length,
+            realizados: agendamentosHoje.filter(ag => ag.status === 'Realizado').length
+        };
+
+        // Próximos Agendamentos (Futuros, ordenados)
+        const proximos = agendamentos
+            .filter(ag => new Date(ag.start) > agora && ag.status !== 'Cancelado')
+            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+            .slice(0, 3) // Pega apenas os 3 próximos
+            .map(ag => {
+                const paciente = pacientes.find(p => p.id === ag.pacienteId);
+                return {
+                    id: ag.id,
+                    hora: new Date(ag.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                    data: new Date(ag.start).toLocaleDateString('pt-BR'),
+                    pacienteNome: paciente?.nome || 'Paciente Desconhecido',
+                    status: ag.status
+                };
+            });
+
+        return { stats, proximos };
+    }, [agendamentos, pacientes]);
 
     return (
         <Box>
@@ -66,9 +144,11 @@ export const HomePage = () => {
                 <Typography variant="h4" component="h1" sx={{ mb: { xs: 2, md: 0 } }}>
                     Bem-vindo, {user?.name || 'Usuário'}!
                 </Typography>
+                
+                {/* Campo de Busca Visual (Futuramente pode redirecionar para Configurações > Pacientes) */}
                 <TextField
                     size="small"
-                    placeholder="Pesquisar paciente ou profissional..."
+                    placeholder="Pesquisar..."
                     variant="outlined"
                     InputProps={{ startAdornment: ( <InputAdornment position="start"> <SearchIcon /> </InputAdornment> ) }}
                     sx={{ width: { xs: '100%', md: '300px' } }}
@@ -76,9 +156,11 @@ export const HomePage = () => {
             </Box>
 
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                
+                {/* Versículo */}
                 <Box sx={{ flexBasis: '100%' }}>
-                    <Paper elevation={2} sx={{ p: 2 }}>
-                        <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
+                    <Paper elevation={2} sx={{ p: 2, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+                        <Typography variant="body1" sx={{ fontStyle: 'italic', fontSize: '1.1rem' }}>
                             "{verse.text}"
                         </Typography>
                         <Typography variant="body2" sx={{ textAlign: 'right', fontWeight: 'bold', mt: 1 }}>
@@ -87,44 +169,88 @@ export const HomePage = () => {
                     </Paper>
                 </Box>
                 
+                {/* Ações Rápidas */}
                 <Box sx={{ flexBasis: { xs: '100%', sm: 'calc(50% - 12px)' }, flexGrow: 1 }}>
-                    <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
+                    <Paper elevation={2} sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                         <Typography variant="h6" gutterBottom> Ações Rápidas </Typography>
-                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            <Button variant="contained" startIcon={<EventIcon />}>Novo Agendamento</Button>
-                            <Button variant="outlined" startIcon={<PersonAddIcon />}>Adicionar Paciente</Button>
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
+                            <Button 
+                                variant="contained" 
+                                startIcon={<EventIcon />}
+                                onClick={() => navigate('/agendamentos')}
+                            >
+                                Novo Agendamento
+                            </Button>
+                            <Button 
+                                variant="outlined" 
+                                startIcon={<PersonAddIcon />}
+                                onClick={() => navigate('/configuracoes')} // Pacientes fica em Configurações
+                            >
+                                Adicionar Paciente
+                            </Button>
                         </Box>
                     </Paper>
                 </Box>
+
+                {/* Resumo de Hoje */}
                 <Box sx={{ flexBasis: { xs: '100%', sm: 'calc(50% - 12px)' }, flexGrow: 1 }}>
                     <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
                         <Typography variant="h6" gutterBottom> Resumo de Hoje </Typography>
-                        <Box>
-                            <Typography variant="body2"><strong>0</strong> Agendamentos Confirmados</Typography>
-                            <Typography variant="body2"><strong>0</strong> Pendências de Confirmação</Typography>
-                            <Typography variant="body2"><strong>0</strong> Atendimentos Realizados</Typography>
-                        </Box>
+                        {loadingData ? <CircularProgress size={20} /> : (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                <Typography variant="body1" sx={{ color: 'success.main' }}>
+                                    <strong>{dashboardStats.stats.confirmados}</strong> Agendamentos Confirmados
+                                </Typography>
+                                <Typography variant="body1" sx={{ color: 'warning.main' }}>
+                                    <strong>{dashboardStats.stats.pendentes}</strong> Pendências de Confirmação
+                                </Typography>
+                                <Typography variant="body1" sx={{ color: 'info.main' }}>
+                                    <strong>{dashboardStats.stats.realizados}</strong> Atendimentos Realizados
+                                </Typography>
+                            </Box>
+                        )}
                     </Paper>
                 </Box>
+
+                {/* Metas (Estático - Visual) */}
                 <Box sx={{ flexBasis: { xs: '100%', md: 'calc(50% - 12px)' }, flexGrow: 1 }}>
                     <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
                         <Typography variant="h6" gutterBottom> Metas do Mês </Typography>
                         <List dense>
                             <ListItem><ListItemText primary="- Atingir 80 atendimentos" /></ListItem>
-                            <ListItem><ListItemText primary="- Reduzir faltas em 10%" /></ListItem>
+                            <ListItem><ListItemText primary="- Manter taxa de ocupação > 90%" /></ListItem>
                         </List>
                     </Paper>
                 </Box>
+
+                {/* Próximos Agendamentos (Dinâmico) */}
                 <Box sx={{ flexBasis: { xs: '100%', md: 'calc(50% - 12px)' }, flexGrow: 1 }}>
                     <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
                         <Typography variant="h6" gutterBottom> Próximos Agendamentos </Typography>
-                        <List dense>
-                            <ListItem><ListItemText primary="14:00 - Ana Clara Sousa" secondary="Sessão de Fisioterapia" /></ListItem>
-                            <Divider component="li" />
-                            <ListItem><ListItemText primary="15:00 - Lucas Ferreira Lima" secondary="Consulta de Avaliação" /></ListItem>
-                            <Divider component="li" />
-                            <ListItem><ListItemText primary="Nenhum outro agendamento para hoje." sx={{ color: 'text.secondary', textAlign: 'center', mt: 1 }} /></ListItem>
-                        </List>
+                        {loadingData ? <CircularProgress size={20} /> : (
+                            <List dense>
+                                {dashboardStats.proximos.length > 0 ? (
+                                    dashboardStats.proximos.map(prox => (
+                                        <div key={prox.id}>
+                                            <ListItem>
+                                                <ListItemText 
+                                                    primary={`${prox.data} às ${prox.hora} - ${prox.pacienteNome}`} 
+                                                    secondary={`Status: ${prox.status}`} 
+                                                />
+                                            </ListItem>
+                                            <Divider component="li" />
+                                        </div>
+                                    ))
+                                ) : (
+                                    <ListItem>
+                                        <ListItemText 
+                                            primary="Nenhum agendamento futuro encontrado." 
+                                            sx={{ color: 'text.secondary', fontStyle: 'italic' }} 
+                                        />
+                                    </ListItem>
+                                )}
+                            </List>
+                        )}
                     </Paper>
                 </Box>
             </Box>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
@@ -14,7 +14,8 @@ import Tooltip from '@mui/material/Tooltip';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { useNavigate } from 'react-router-dom';
-import TextField from '@mui/material/TextField'; // Importação adicionada
+import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment'; // Novo
 
 // Ícones
 import AddIcon from '@mui/icons-material/Add';
@@ -23,13 +24,14 @@ import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import DescriptionIcon from '@mui/icons-material/Description';
-import ClearIcon from '@mui/icons-material/Clear'; // Importação adicionada
+import ClearIcon from '@mui/icons-material/Clear';
+import SearchIcon from '@mui/icons-material/Search'; // Novo
 
 // Importamos os modais e o novo painel Kanban
 import { PacienteFormModal } from './PacienteFormModal';
 import { PacientesKanban } from './PacientesKanban'; 
 
-// Interface atualizada com Status
+// Interface
 interface IPaciente {
     id: number;
     nome: string;
@@ -37,28 +39,59 @@ interface IPaciente {
     dataNascimento: string;
     nomeResponsavel: string;
     telefoneResponsavel: string;
-    status: 'Agendado' | 'Em Atendimento' | 'Finalizado' | 'Cancelado'; // Ajustado status para coincidir com PacientesKanban
+    status: 'Agendado' | 'Em Atendimento' | 'Finalizado' | 'Cancelado'; 
 }
-
-// Dados de exemplo atualizados com Status
-const DADOS_INICIAIS: IPaciente[] = [
-    { id: 1, nome: 'Ana Clara Sousa', cpf: '123.456.789-00', dataNascimento: '2018-08-15', nomeResponsavel: 'João Sousa', telefoneResponsavel: '(85) 99111-1111', status: 'Em Atendimento' },
-    { id: 2, nome: 'Lucas Ferreira Lima', cpf: '987.654.321-11', dataNascimento: '2019-03-22', nomeResponsavel: 'Ricardo Sousa', telefoneResponsavel: '(85) 99999-9999', status: 'Agendado' },
-    { id: 3, nome: 'Mariana Costa e Silva', cpf: '111.222.333-44', dataNascimento: '2020-11-05', nomeResponsavel: 'Beatriz Costa', telefoneResponsavel: '(85) 98765-4321', status: 'Finalizado' },
-    // Se quiser adicionar um paciente cancelado, use 'Cancelado'
-    // { id: 4, nome: 'Paciente Cancelado', cpf: '222.333.444-55', dataNascimento: '2017-01-01', nomeResponsavel: 'Carlos Silva', telefoneResponsavel: '(85) 98888-8888', status: 'Cancelado' },
-];
 
 export const PacientesPanel = () => {
     const navigate = useNavigate();
-    const [pacientes, setPacientes] = useState<IPaciente[]>(DADOS_INICIAIS);
+    // 1. Começa vazio (sem mocks)
+    const [pacientes, setPacientes] = useState<IPaciente[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pacienteParaEditar, setPacienteParaEditar] = useState<IPaciente | null>(null);
     const [viewMode, setViewMode] = useState<'lista' | 'kanban'>('lista'); 
     
-    // Estados para filtros de data
+    // Filtros
     const [filtroDataInicio, setFiltroDataInicio] = useState(''); 
-    const [filtroDataFim, setFiltroDataFim] = useState('');       
+    const [filtroDataFim, setFiltroDataFim] = useState('');
+    const [busca, setBusca] = useState(''); // Novo filtro de busca textual
+
+    // 2. Helper de Autenticação
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+    };
+
+    // 3. Buscar Pacientes (GET)
+    const carregarPacientes = () => {
+        fetch('http://localhost:3000/patients', {
+            method: 'GET',
+            headers: getAuthHeaders()
+        })
+        .then(res => {
+            if (res.status === 401) throw new Error('Não autorizado');
+            if (!res.ok) throw new Error('Erro na API');
+            return res.json();
+        })
+        .then(data => {
+            if (Array.isArray(data)) {
+                setPacientes(data);
+            } else {
+                setPacientes([]);
+            }
+        })
+        .catch(err => {
+            console.error("Erro ao carregar pacientes:", err);
+            setPacientes([]);
+        });
+    };
+
+    // Carrega ao abrir
+    useEffect(() => {
+        carregarPacientes();
+    }, []);
 
     const handleAbrirModalParaAdicionar = () => {
         setPacienteParaEditar(null);
@@ -74,57 +107,91 @@ export const PacientesPanel = () => {
         setIsModalOpen(false);
     };
 
-    // Ajustado para receber dados sem status
+    // 4. Salvar (POST / PUT)
     const handleSalvarPaciente = (pacienteData: Omit<IPaciente, 'id' | 'status'> & { id?: number }) => { 
+        // Define payload (novo paciente nasce como Agendado)
+        const payload = {
+            ...pacienteData,
+            status: pacienteData.id ? undefined : 'Agendado' 
+        };
+        const headers = getAuthHeaders();
+
         if (pacienteData.id) {
-            // Edição: Mantém o status existente ou o atualiza se vier (não vem mais do modal)
-            setPacientes(atuais => atuais.map(p => 
-                p.id === pacienteData.id ? { ...p, ...pacienteData } : p
-            ));
+            // Edição
+            fetch(`http://localhost:3000/patients/${pacienteData.id}`, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify(payload)
+            }).then(res => {
+                if (res.ok) {
+                    carregarPacientes();
+                    handleFecharModal();
+                } else alert("Erro ao editar paciente.");
+            });
         } else {
-            const novoId = pacientes.length > 0 ? Math.max(...pacientes.map(p => p.id)) + 1 : 1;
-            const novoPacienteCompleto: IPaciente = {
-                id: novoId,
-                nome: pacienteData.nome,
-                cpf: pacienteData.cpf,
-                dataNascimento: pacienteData.dataNascimento,
-                nomeResponsavel: pacienteData.nomeResponsavel,
-                telefoneResponsavel: pacienteData.telefoneResponsavel,
-                status: 'Agendado', // Status inicial padrão
-            };
-            setPacientes(atuais => [...atuais, novoPacienteCompleto]);
+            // Criação
+            fetch('http://localhost:3000/patients', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(payload)
+            }).then(res => {
+                if (res.ok) {
+                    carregarPacientes();
+                    handleFecharModal();
+                } else alert("Erro ao criar paciente.");
+            });
         }
-        handleFecharModal();
     };
 
-
+    // 5. Apagar (DELETE)
     const handleApagar = (idDoPaciente: number) => {
-        if (window.confirm('Tem a certeza que deseja excluir este paciente?')) {
-            setPacientes(atuais => atuais.filter(p => p.id !== idDoPaciente));
-        }
+        fetch(`http://localhost:3000/patients/${idDoPaciente}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        }).then(res => {
+            if (res.ok) {
+                setPacientes(atuais => atuais.filter(p => p.id !== idDoPaciente));
+            } else alert("Erro ao excluir paciente.");
+        });
     };
 
+    // 6. Mudar Status via Kanban (PATCH)
     const handlePacienteStatusChange = (pacienteId: number, novoStatus: IPaciente['status']) => {
-      setPacientes(atuais => 
-          atuais.map(p => 
-              p.id === pacienteId ? { ...p, status: novoStatus } : p
-          )
-      );
+        // Atualização Otimista na tela
+        setPacientes(atuais => 
+            atuais.map(p => p.id === pacienteId ? { ...p, status: novoStatus } : p)
+        );
+
+        // Envia para o servidor
+        fetch(`http://localhost:3000/patients/${pacienteId}`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ status: novoStatus })
+        }).catch(err => {
+            console.error("Erro ao salvar status:", err);
+            carregarPacientes(); // Reverte se der erro
+        });
     };
 
     const handleChangeView = (_event: React.MouseEvent<HTMLElement>, newView: 'lista' | 'kanban' | null) => {
-        if (newView !== null) {
-            setViewMode(newView);
-        }
+        if (newView !== null) setViewMode(newView);
     };
 
-    // Lógica de Filtragem por Data
-    const pacientesFiltradosPorData = pacientes.filter(paciente => {
+    // Lógica de Filtragem (Mantive a sua de data e adicionei a de Busca)
+    const pacientesFiltrados = pacientes.filter(paciente => {
         const dataPaciente = new Date(paciente.dataNascimento + 'T00:00:00'); 
-        if (!filtroDataInicio && !filtroDataFim) return true;
+        
+        // Filtro Data
         const inicioOk = !filtroDataInicio || dataPaciente >= new Date(filtroDataInicio + 'T00:00:00');
         const fimOk = !filtroDataFim || dataPaciente <= new Date(filtroDataFim + 'T00:00:00');
-        return inicioOk && fimOk;
+        
+        // Filtro Busca (Nome ou CPF)
+        const termo = busca.toLowerCase();
+        const buscaOk = !busca || 
+            paciente.nome.toLowerCase().includes(termo) || 
+            paciente.cpf.includes(termo);
+
+        return inicioOk && fimOk && buscaOk;
     });
 
     return (
@@ -138,76 +205,65 @@ export const PacientesPanel = () => {
                 </Button>
             </Box>
 
-            {/* Barra de Filtros e Seletor de Vista */}
+            {/* Barra de Filtros Melhorada */}
             <Paper elevation={1} sx={{ p: 2, mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
-                <Typography variant="body2" sx={{ mr: 1, flexShrink: 0 }}>Filtrar Data Nasc.:</Typography>
+                {/* Campo de Busca Novo */}
+                <TextField
+                    size="small"
+                    placeholder="Buscar Nome ou CPF..."
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    InputProps={{
+                        startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>
+                    }}
+                    sx={{ width: { xs: '100%', sm: 250 } }}
+                />
+
+                <Typography variant="body2" sx={{ ml: { sm: 1 } }}>Nasc:</Typography>
                 <TextField 
-                    size="small" 
-                    label="De" 
-                    type="date" 
-                    InputLabelProps={{ shrink: true }} 
-                    sx={{ width: { xs: 'calc(50% - 70px)', sm: 150} }}
-                    value={filtroDataInicio} 
+                    size="small" type="date" value={filtroDataInicio} 
                     onChange={(e) => setFiltroDataInicio(e.target.value)} 
                 />
                 <TextField 
-                    size="small" 
-                    label="Até" 
-                    type="date" 
-                    InputLabelProps={{ shrink: true }} 
-                    sx={{ width: { xs: 'calc(50% - 70px)', sm: 150} }}
-                    value={filtroDataFim} 
+                    size="small" type="date" value={filtroDataFim} 
                     onChange={(e) => setFiltroDataFim(e.target.value)} 
                 />
+                
                 <Button 
-                    size="small" 
-                    startIcon={<ClearIcon />}
-                    onClick={() => { setFiltroDataInicio(''); setFiltroDataFim(''); }}
-                    disabled={!filtroDataInicio && !filtroDataFim}
-                    sx={{ ml: { xs: 0, sm: 'auto' } }} 
+                    size="small" startIcon={<ClearIcon />}
+                    onClick={() => { setFiltroDataInicio(''); setFiltroDataFim(''); setBusca(''); }}
+                    sx={{ ml: 'auto' }}
                 >
-                    Limpar Datas
+                    Limpar
                 </Button>
+
                 <ToggleButtonGroup
-                    value={viewMode}
-                    exclusive
-                    onChange={handleChangeView}
-                    aria-label="Modo de visualização"
-                    size="small"
-                    sx={{ ml: { xs: 'auto', sm: 1 } }} 
+                    value={viewMode} exclusive onChange={handleChangeView}
+                    size="small" sx={{ ml: 1 }}
                 >
-                    <ToggleButton value="lista" aria-label="lista">
-                        <Tooltip title="Visualizar em Lista"><ViewListIcon /></Tooltip>
-                    </ToggleButton>
-                    <ToggleButton value="kanban" aria-label="kanban">
-                        <Tooltip title="Visualizar em Kanban"><ViewKanbanIcon /></Tooltip>
-                    </ToggleButton>
+                    <ToggleButton value="lista"><Tooltip title="Lista"><ViewListIcon /></Tooltip></ToggleButton>
+                    <ToggleButton value="kanban"><Tooltip title="Kanban"><ViewKanbanIcon /></Tooltip></ToggleButton>
                 </ToggleButtonGroup>
             </Paper>
 
-
-            {/* Renderização Condicional: Tabela ou Kanban */}
+            {/* Visualização em Lista */}
             {viewMode === 'lista' && (
                 <Paper elevation={3} sx={{ width: '100%', overflow: 'hidden' }}> 
                     <TableContainer>
                         <Table> 
                             <TableHead>
                                 <TableRow>
-                                    <TableCell sx={{ fontWeight: 'bold', borderBottom: '2px solid rgba(224, 224, 224, 1)' }}>Nome Completo</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold', borderBottom: '2px solid rgba(224, 224, 224, 1)' }}>CPF</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold', borderBottom: '2px solid rgba(224, 224, 224, 1)' }}>Data Nasc.</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold', borderBottom: '2px solid rgba(224, 224, 224, 1)' }}>Responsável</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold', borderBottom: '2px solid rgba(224, 224, 224, 1)' }}>Telefone</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold', borderBottom: '2px solid rgba(224, 224, 224, 1)' }} align="right">Ações</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>Nome Completo</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>CPF</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>Data Nasc.</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>Responsável</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>Telefone</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }} align="right">Ações</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {pacientesFiltradosPorData.map((paciente) => (
-                                    <TableRow 
-                                        key={paciente.id} 
-                                        hover 
-                                        sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                                    >
+                                {pacientesFiltrados.map((paciente) => (
+                                    <TableRow key={paciente.id} hover>
                                         <TableCell sx={{ py: 1.5 }}>{paciente.nome}</TableCell>
                                         <TableCell sx={{ py: 1.5 }}>{paciente.cpf}</TableCell>
                                         <TableCell sx={{ py: 1.5 }}>{new Date(paciente.dataNascimento + 'T00:00:00').toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</TableCell>
@@ -215,11 +271,7 @@ export const PacientesPanel = () => {
                                         <TableCell sx={{ py: 1.5 }}>{paciente.telefoneResponsavel}</TableCell>
                                         <TableCell align="right" sx={{ py: 1.5 }}>
                                             <Tooltip title="Ver Prontuário">
-                                                <IconButton 
-                                                    size="small" 
-                                                    color="info"
-                                                    onClick={() => navigate(`/pacientes/${paciente.id}/prontuario`)}
-                                                >
+                                                <IconButton size="small" color="info" onClick={() => navigate(`/pacientes/${paciente.id}/prontuario`)}>
                                                     <DescriptionIcon />
                                                 </IconButton>
                                             </Tooltip>
@@ -236,10 +288,10 @@ export const PacientesPanel = () => {
                                         </TableCell>
                                     </TableRow>
                                 ))}
-                                {pacientesFiltradosPorData.length === 0 && (
+                                {pacientesFiltrados.length === 0 && (
                                     <TableRow>
                                         <TableCell colSpan={6} align="center">
-                                            Nenhum paciente encontrado{ (filtroDataInicio || filtroDataFim) ? ' para o período selecionado' : ''}.
+                                            Nenhum paciente encontrado.
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -249,9 +301,10 @@ export const PacientesPanel = () => {
                 </Paper>
             )}
 
+            {/* Visualização em Kanban */}
             {viewMode === 'kanban' && (
                 <PacientesKanban 
-                    pacientes={pacientesFiltradosPorData}
+                    pacientes={pacientesFiltrados}
                     onPacienteStatusChange={handlePacienteStatusChange} 
                 />
             )}
@@ -261,7 +314,7 @@ export const PacientesPanel = () => {
                 onClose={handleFecharModal}
                 onSave={handleSalvarPaciente}
                 pacienteParaEditar={pacienteParaEditar as never}
-                onDelete={handleApagar} // Passa a função de apagar para o modal
+                onDelete={handleApagar}
             />
         </Box>
     );

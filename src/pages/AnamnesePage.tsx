@@ -7,6 +7,7 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Alert from '@mui/material/Alert';
 import Collapse from '@mui/material/Collapse';
+import CircularProgress from '@mui/material/CircularProgress';
 
 // Ícones
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -16,107 +17,122 @@ import PrintIcon from '@mui/icons-material/Print';
 // Importa o formulário e o tipo
 import { AnamneseForm, type IAnamneseData } from '../components/AnamneseForm';
 
-// --- Simulação de Dados (Simplificada, pois os dados estão no AnamneseForm) ---
+// Interface do Paciente (vinda da API)
 interface IPaciente {
     id: number;
     nome: string;
     dataNascimento: string;
-    sexo: 'M' | 'F' | 'Outro';
-    telefone: string;
-    profissao: string;
-    endereco: string;
-    cidade: string;
+    sexo?: 'M' | 'F' | 'Outro'; // Campo opcional, pode não vir do backend
+    telefoneResponsavel: string; // Backend manda telefoneResponsavel, mapear se necessário
+    profissao?: string;
+    endereco?: string;
+    cidade?: string;
     nomeResponsavel: string;
 }
-
-// Simulação de dados de anamnese
-const DADOS_ANAMNESE_MOCK: { [pacienteId: number]: IAnamneseData } = {
-    1: { 
-        queixaPrincipal: "Atraso no desenvolvimento da fala.",
-        hda: "Desde os 2 anos, os pais notaram...",
-        hmp: "Nascimento a termo...",
-        gestacaoParto: "Gestação a termo, parto normal...",
-        desenvolvimentoPsicomotor: "Sentou aos 6m, andou aos 14m...",
-        historicoFamiliar: "Pai com TDAH.",
-        medicacoesAlergias: "Nenhuma.",
-        diagnosticoClinico: "Investigação para TEA",
-        dataAvaliacao: "2023-10-26",
-        pa: "100/60 mmHg",
-        fc: "80 bpm",
-        doencasMetabolicas: false, doencasCardiacas: false, doencasRespiratorias: false,
-        doencasVasculares: false, doencasNeurologicas: false, doencasEndocrinas: false,
-        doencasDermatologicas: false, doencasGastrointestinais: false, doencasVisuais: false,
-        doencasAssociadasOutras: "Sem outras.",
-        afDiabetes: false, afHipertensao: false, afCardiopatia: false, afNeoplasias: false,
-        afDoencasHereditarias: false, afOutras: "Pai com TDAH.",
-        apCondicoesCrescimento: "Sentou aos 6m, andou aos 14m.",
-        apHabitosVidaAlimentacao: "Dieta variada.",
-        apSono: "Dorme bem.",
-        apTabagismo: 'Não', apTabagismoFrequencia: '', apEtilismo: 'Não', apEtilismoFrequencia: '',
-        apUsoMedicacao: 'Não', apQualMedicacao: '',
-    },
-};
-
-const getPacienteById = (id: number): IPaciente | null => {
-    const pacientesSimulados: IPaciente[] = [
-        { id: 1, nome: 'Ana Clara Sousa', dataNascimento: '2018-05-15', sexo: 'F', telefone: '(85) 99999-1111', profissao: 'Estudante', endereco: 'Rua A, 123', cidade: 'Fortaleza', nomeResponsavel: 'Maria Sousa' },
-        { id: 2, nome: 'Lucas Ferreira Lima', dataNascimento: '2019-11-22', sexo: 'M', telefone: '(85) 98888-2222', profissao: 'Estudante', endereco: 'Av. B, 456', cidade: 'Caucaia', nomeResponsavel: 'Pedro Lima' },
-        { id: 3, nome: 'Mariana Costa e Silva', dataNascimento: '2017-03-01', sexo: 'F', telefone: '(85) 97777-3333', profissao: 'Estudante', endereco: 'Trav. C, 789', cidade: 'Eusébio', nomeResponsavel: 'Joana Silva' },
-    ];
-    return pacientesSimulados.find(p => p.id === id) || null;
-}
-// --- Fim da Simulação ---
-
 
 export const AnamnesePage = () => {
     const { pacienteId } = useParams<{ pacienteId: string }>();
     const navigate = useNavigate();
+    
     const [paciente, setPaciente] = useState<IPaciente | null>(null);
     const [anamneseData, setAnamneseData] = useState<IAnamneseData | null>(null);
+    const [loading, setLoading] = useState(true);
     const [showSuccess, setShowSuccess] = useState(false);
 
+    // Helper de Auth
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+    };
+
+    // Cor dinâmica baseada no sexo (se disponível) ou padrão
     const mainColor = paciente?.sexo === 'F' ? '#F48FB1' : '#2196F3';
 
+    // Carregar Dados
     useEffect(() => {
-        const idNum = Number(pacienteId);
-        if (idNum) {
-            const pacienteEncontrado = getPacienteById(idNum);
-            setPaciente(pacienteEncontrado);
-            if (DADOS_ANAMNESE_MOCK[idNum]) {
-                setAnamneseData(DADOS_ANAMNESE_MOCK[idNum]);
-            } else {
-                setAnamneseData(null);
+        if (!pacienteId) return;
+
+        const carregarDados = async () => {
+            setLoading(true);
+            try {
+                const headers = getAuthHeaders();
+                
+                // 1. Busca Paciente
+                const resPaciente = await fetch(`http://localhost:3000/patients/${pacienteId}`, { headers });
+                if (resPaciente.ok) {
+                    const dadosPaciente = await resPaciente.json();
+                    setPaciente(dadosPaciente);
+                }
+
+                // 2. Busca Anamnese (Se existir)
+                const resAnamnese = await fetch(`http://localhost:3000/patients/${pacienteId}/anamnesis`, { headers });
+                if (resAnamnese.ok) {
+                    const dadosAnamnese = await resAnamnese.json();
+                    setAnamneseData(dadosAnamnese); // Preenche o form
+                } else if (resAnamnese.status === 404) {
+                    setAnamneseData(null); // Anamnese nova (vazia)
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar dados:", error);
+            } finally {
+                setLoading(false);
             }
-        }
+        };
+
+        carregarDados();
     }, [pacienteId]);
 
+    // Atualiza estado local quando o usuário digita no form
     const handleAnamneseDataChange = useCallback((data: IAnamneseData) => {
         setAnamneseData(data);
     }, []);
 
-    const handleSave = () => {
-        if (!anamneseData) return;
-        console.log("Salvando Anamnese (simulado):", { pacienteId: paciente?.id, ...anamneseData });
-        if (paciente?.id) {
-            DADOS_ANAMNESE_MOCK[paciente.id] = anamneseData;
+    // Salvar no Backend
+    const handleSave = async () => {
+        if (!anamneseData || !pacienteId) return;
+
+        try {
+            const res = await fetch(`http://localhost:3000/patients/${pacienteId}/anamnesis`, {
+                method: 'PUT', // ou POST, dependendo da sua API (PUT geralmente cria ou atualiza)
+                headers: getAuthHeaders(),
+                body: JSON.stringify(anamneseData)
+            });
+
+            if (res.ok) {
+                setShowSuccess(true);
+                setTimeout(() => setShowSuccess(false), 4000);
+            } else {
+                alert("Erro ao salvar anamnese. Tente novamente.");
+            }
+        } catch (error) {
+            console.error("Erro ao salvar:", error);
+            alert("Erro de conexão ao salvar.");
         }
-        setShowSuccess(true);
-        setTimeout(() => {
-            setShowSuccess(false);
-        }, 4000);
     };
 
     const handlePrint = () => {
         window.print();
     };
 
+    if (loading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+
     if (!paciente) {
-        return ( <Typography>Paciente não encontrado.</Typography> );
+        return <Typography variant="h6" sx={{ mt: 4, textAlign: 'center' }}>Paciente não encontrado.</Typography>;
     }
 
     return (
         <Box>
-            {/* Esta secção inteira (cabeçalho, botões, etc.) NÃO será impressa */}
+            {/* Header (Não impresso) */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }} className="no-print">
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <IconButton onClick={() => navigate(`/pacientes/${pacienteId}/prontuario`)} sx={{ mr: 1 }}>
@@ -142,17 +158,17 @@ export const AnamnesePage = () => {
                 </Alert>
             </Collapse>
 
-            {/* Esta é a única secção que SERÁ impressa */}
+            {/* Área de Impressão */}
             <Paper 
                 elevation={3} 
                 sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: '900px', mx: 'auto' }}
-                id="anamnese-para-imprimir" // ID para o CSS de impressão
+                id="anamnese-para-imprimir"
             >
                 <AnamneseForm
                     pacienteNome={paciente.nome}
-                    pacienteDataNascimento={paciente.dataNascimento}
+                    pacienteDataNascimento={paciente.dataNascimento} // Backend deve mandar formato ISO ou string
                     pacienteSexo={paciente.sexo}
-                    pacienteTelefone={paciente.telefone}
+                    pacienteTelefone={paciente.telefoneResponsavel}
                     pacienteProfissao={paciente.profissao}
                     pacienteEndereco={paciente.endereco}
                     pacienteCidade={paciente.cidade}

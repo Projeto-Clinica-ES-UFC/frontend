@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
@@ -18,27 +18,61 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 
-// Importamos o nosso novo componente de Modal
+// Importamos o componente de Modal
 import { UsuarioFormModal } from './UsuarioFormModal';
 
-// Interface para definir a "forma" de um usuário do sistema
+// Interface
 interface IUsuario {
     id: number;
     nome: string;
     email: string;
     perfil: 'Administrador' | 'Recepcionista' | 'Profissional';
+    password?: string; // Opcional, usado apenas no envio
 }
 
-// Dados de exemplo iniciais
-const DADOS_INICIAIS: IUsuario[] = [
-    { id: 1, nome: 'Vitória Sousa', email: 'vitoria.sousa@email.com', perfil: 'Administrador' },
-    { id: 2, nome: 'Carlos Andrade', email: 'carlos.andrade@email.com', perfil: 'Recepcionista' },
-];
-
 export const UsuariosPanel = () => {
-    const [usuarios, setUsuarios] = useState<IUsuario[]>(DADOS_INICIAIS);
+    // 1. Estado inicial vazio
+    const [usuarios, setUsuarios] = useState<IUsuario[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [usuarioParaEditar, setUsuarioParaEditar] = useState<IUsuario | null>(null);
+
+    // 2. Helper de Autenticação
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+    };
+
+    // 3. Buscar Usuários (GET)
+    const carregarUsuarios = () => {
+        fetch('http://localhost:3000/users', {
+            method: 'GET',
+            headers: getAuthHeaders()
+        })
+        .then(res => {
+            if (res.status === 401) throw new Error('Não autorizado');
+            if (!res.ok) throw new Error('Erro na API');
+            return res.json();
+        })
+        .then(data => {
+            if (Array.isArray(data)) {
+                setUsuarios(data);
+            } else {
+                setUsuarios([]);
+            }
+        })
+        .catch(err => {
+            console.error("Erro ao carregar usuários:", err);
+            // Em caso de erro, zera a lista para não travar
+            setUsuarios([]);
+        });
+    };
+
+    useEffect(() => {
+        carregarUsuarios();
+    }, []);
 
     const handleAbrirModalParaAdicionar = () => {
         setUsuarioParaEditar(null);
@@ -54,21 +88,70 @@ export const UsuariosPanel = () => {
         setIsModalOpen(false);
     };
 
-    const handleSalvarUsuario = (dados: Omit<IUsuario, 'id'> & { id?: number }) => {
+    // 4. Salvar (Lógica Mista: Sign-Up vs Update)
+    const handleSalvarUsuario = (dados: Omit<IUsuario, 'id'> & { id?: number, password?: string }) => {
+        const headers = getAuthHeaders();
+
         if (dados.id) {
-            // Lógica de Edição
-            setUsuarios(atuais => atuais.map(u => u.id === dados.id ? { ...u, ...dados } as IUsuario : u));
+            // --- EDIÇÃO (PUT /users/:id) ---
+            const payload = {
+                name: dados.nome, // Backend geralmente espera 'name'
+                email: dados.email,
+                role: dados.perfil, // Backend pode esperar 'role'
+                // Se tiver senha nova, envia. Se não, ignora.
+                ...(dados.password && { password: dados.password })
+            };
+
+            fetch(`http://localhost:3000/users/${dados.id}`, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify(payload)
+            }).then(res => {
+                if (res.ok) {
+                    carregarUsuarios();
+                    handleFecharModal();
+                } else alert("Erro ao editar usuário.");
+            });
+
         } else {
-            // Lógica de Adição
-            const novoId = usuarios.length > 0 ? Math.max(...usuarios.map(u => u.id)) + 1 : 1;
-            setUsuarios(atuais => [...atuais, { ...dados, id: novoId }]);
+            // --- CRIAÇÃO (POST /api/auth/sign-up) ---
+            // Usamos a rota de Auth para criar contas novas com senha
+            const payload = {
+                name: dados.nome,
+                email: dados.email,
+                password: dados.password,
+                passwordConfirmation: dados.password, // Better-Auth exige confirmação
+                role: dados.perfil
+            };
+
+            fetch('http://localhost:3000/api/auth/sign-up', {
+                method: 'POST',
+                headers, // Envia token se necessário (se o middleware pedir)
+                body: JSON.stringify(payload)
+            }).then(async res => {
+                if (res.ok) {
+                    alert("Usuário criado com sucesso!");
+                    carregarUsuarios();
+                    handleFecharModal();
+                } else {
+                    const erro = await res.json();
+                    alert("Erro ao criar: " + JSON.stringify(erro));
+                }
+            });
         }
-        handleFecharModal();
     };
 
+    // 5. Apagar (DELETE)
     const handleApagar = (id: number) => {
         if (window.confirm('Tem a certeza que deseja excluir este usuário?')) {
-            setUsuarios(atuais => atuais.filter(u => u.id !== id));
+            fetch(`http://localhost:3000/users/${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            }).then(res => {
+                if (res.ok) {
+                    setUsuarios(atuais => atuais.filter(u => u.id !== id));
+                } else alert("Erro ao excluir usuário.");
+            });
         }
     };
 
@@ -105,7 +188,7 @@ export const UsuariosPanel = () => {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {usuarios.map((usuario) => (
+                            {usuarios?.map((usuario) => (
                                 <TableRow key={usuario.id} hover>
                                     <TableCell>{usuario.nome}</TableCell>
                                     <TableCell>{usuario.email}</TableCell>
@@ -126,6 +209,13 @@ export const UsuariosPanel = () => {
                                     </TableCell>
                                 </TableRow>
                             ))}
+                            {(!usuarios || usuarios.length === 0) && (
+                                <TableRow>
+                                    <TableCell colSpan={4} align="center">
+                                        Nenhum usuário encontrado.
+                                    </TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </TableContainer>

@@ -19,12 +19,10 @@ interface INotificationContext {
 const NotificationContext = createContext<INotificationContext | undefined>(undefined);
 
 export const NotificationProvider = ({ children }: { children: ReactNode }) => {
-    // Começa com os dados de exemplo que estavam antes no Layout
-    const [notificacoes, setNotificacoes] = useState<INotification[]>([
-        { id: 1, text: 'Agendamento de Ana Clara foi confirmado.', read: false },
-        { id: 2, text: 'O paciente Lucas Ferreira foi cadastrado.', read: true },
-    ]);
+    // 1. Estado inicial VAZIO (sem dados falsos)
+    const [notificacoes, setNotificacoes] = useState<INotification[]>([]);
 
+    // Função para adicionar notificação (pode ser chamada por qualquer componente)
     const addNotification = (text: string) => {
         const nova: INotification = {
             id: Date.now(),
@@ -41,7 +39,9 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const markAllAsRead = () => setNotificacoes(atuais => atuais.map(n => ({ ...n, read: true })));
+    
     const clearAll = () => setNotificacoes([]);
+    
     const unreadCount = notificacoes.filter(n => !n.read).length;
 
     return (

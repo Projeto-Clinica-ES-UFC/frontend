@@ -6,6 +6,7 @@ import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
+import CircularProgress from '@mui/material/CircularProgress';
 
 // Importações para a Timeline do @mui/lab
 import Timeline from '@mui/lab/Timeline';
@@ -23,28 +24,27 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import AddIcon from '@mui/icons-material/Add';
 import ClearIcon from '@mui/icons-material/Clear'; 
-import ArticleIcon from '@mui/icons-material/Article'; // Ícone para Anamnese
+import ArticleIcon from '@mui/icons-material/Article';
 
-// Importa o modal (este é o único necessário relacionado ao modal)
+// Modal
 import { HistoricoFormModal } from '../components/HistoricoFormModal';
 
-
-// --- Simulação de Dados ---
+// Interfaces (Alinhadas com o Backend)
 interface IPaciente {
     id: number;
     nome: string;
     dataNascimento: string;
     nomeResponsavel: string;
-    sexo: 'M' | 'F' | 'Outro';
+    sexo?: 'M' | 'F' | 'Outro';
 }
 
 interface IHistoricoEvento {
     id: number;
-    data: string; // Formato AAAA-MM-DD
+    data: string; // YYYY-MM-DD
     tipo: 'Consulta' | 'Avaliação' | 'Anexo' | 'Observação';
     titulo: string;
     descricao?: string;
-    anexoUrl?: string;
+    anexoUrl?: string; // URL retornada do backend se houver upload
     anexoNome?: string;
 }
 
@@ -56,27 +56,6 @@ interface IHistoricoEventoForm {
     anexo?: File | null;
 }
 
-const getPacienteById = (id: number): IPaciente | null => {
-    const pacientesSimulados: IPaciente[] = [
-        { id: 1, nome: 'Ana Clara Sousa', dataNascimento: '2018-08-15', nomeResponsavel: 'João Sousa', sexo: 'F' },
-        { id: 2, nome: 'Lucas Ferreira Lima', dataNascimento: '2019-03-22', nomeResponsavel: 'Ricardo Lima', sexo: 'M' },
-        { id: 3, nome: 'Mariana Costa e Silva', dataNascimento: '2017-03-01', nomeResponsavel: 'Joana Silva', sexo: 'F' },
-    ];
-    return pacientesSimulados.find(p => p.id === id) || null;
-}
-
-const getHistoricoByPacienteId = (id: number): IHistoricoEvento[] => {
-    if (id === 1) {
-        return ([
-            { id: 1, data: '2025-10-21', tipo: 'Consulta', titulo: 'Consulta de Rotina', descricao: 'Paciente apresentou boa evolução.' },
-            { id: 2, data: '2025-09-15', tipo: 'Avaliação', titulo: 'Avaliação Inicial', descricao: 'Realizada avaliação motora e cognitiva.' },
-            { id: 3, data: '2025-09-15', tipo: 'Anexo', titulo: 'Exame_RaioX.pdf', anexoUrl: '#', anexoNome: 'Exame_RaioX.pdf' },
-            { id: 4, data: '2025-08-01', tipo: 'Observação', titulo: 'Observação da Terapeuta', descricao: 'Necessário ajuste no exercício X.' },
-        ] as IHistoricoEvento[]).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-    }
-    return [];
-}
-
 const getTimelineIcon = (tipo: IHistoricoEvento['tipo']) => {
     switch (tipo) {
         case 'Consulta': return <EventIcon />;
@@ -85,61 +64,119 @@ const getTimelineIcon = (tipo: IHistoricoEvento['tipo']) => {
         default: return <Typography variant="caption">●</Typography>;
     }
 };
-// --- Fim da Simulação ---
-
 
 export const ProntuarioPage = () => {
     const { pacienteId } = useParams<{ pacienteId: string }>();
     const navigate = useNavigate();
     
+    // Estados
     const [paciente, setPaciente] = useState<IPaciente | null>(null); 
     const [historico, setHistorico] = useState<IHistoricoEvento[]>([]);
     const [loading, setLoading] = useState(true);
     const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
+    
+    // Filtros
     const [filtroDataInicio, setFiltroDataInicio] = useState(''); 
     const [filtroDataFim, setFiltroDataFim] = useState(''); 
 
+    // Helper de Auth
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+    };
+
+    // 1. Carregar Dados Iniciais
     useEffect(() => {
-        setLoading(true);
-        const idNum = Number(pacienteId);
-        if (!isNaN(idNum)) {
-            setTimeout(() => {
-                setPaciente(getPacienteById(idNum));
-                setHistorico(getHistoricoByPacienteId(idNum));
+        if (!pacienteId) return;
+
+        const carregarProntuario = async () => {
+            setLoading(true);
+            try {
+                const headers = getAuthHeaders();
+                
+                // Busca dados do Paciente
+                const resPac = await fetch(`http://localhost:3000/patients/${pacienteId}`, { headers });
+                if (resPac.ok) {
+                    setPaciente(await resPac.json());
+                } else {
+                    setPaciente(null);
+                }
+
+                // Busca Histórico (Timeline)
+                const resHist = await fetch(`http://localhost:3000/patients/${pacienteId}/history`, { headers });
+                if (resHist.ok) {
+                    const dadosHist = await resHist.json();
+                    if(Array.isArray(dadosHist)) {
+                        // Ordena por data (mais recente primeiro)
+                        setHistorico(dadosHist.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()));
+                    }
+                } else {
+                    setHistorico([]);
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar prontuário:", error);
+            } finally {
                 setLoading(false);
-            }, 500);
-        } else {
-            setPaciente(null);
-            setHistorico([]);
-            setLoading(false);
-        }
+            }
+        };
+
+        carregarProntuario();
     }, [pacienteId]);
 
-    const handleSalvarHistorico = (eventoData: IHistoricoEventoForm, targetPacienteId: number) => {
-        if (paciente && paciente.id === targetPacienteId) { 
-            const novoEvento: IHistoricoEvento = {
-                id: Date.now(),
+    // 2. Salvar Novo Registro (POST)
+    const handleSalvarHistorico = async (eventoData: IHistoricoEventoForm, targetPacienteId: number) => {
+        if (!paciente || paciente.id !== targetPacienteId) return;
+
+        try {
+            // Nota: Se fosse enviar arquivo real, usaríamos FormData. 
+            // Aqui enviamos JSON com os metadados do evento.
+            const payload = {
                 data: eventoData.data,
                 tipo: eventoData.tipo,
                 titulo: eventoData.titulo,
                 descricao: eventoData.descricao,
-                anexoUrl: eventoData.anexo ? URL.createObjectURL(eventoData.anexo) : undefined, 
-                anexoNome: eventoData.anexo ? eventoData.anexo.name : undefined,
+                // anexoNome: eventoData.anexo?.name // Opcional, se o backend suportar salvar nome sem arquivo
             };
-            setHistorico(historicoAtual => 
-                [novoEvento, ...historicoAtual].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-            ); 
+
+            const res = await fetch(`http://localhost:3000/patients/${targetPacienteId}/history`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                // Recarrega a lista para mostrar o novo item
+                const resHist = await fetch(`http://localhost:3000/patients/${targetPacienteId}/history`, { headers: getAuthHeaders() });
+                if (resHist.ok) {
+                    const dadosHist = await resHist.json();
+                    setHistorico(dadosHist.sort((a: IHistoricoEvento, b: IHistoricoEvento) => new Date(b.data).getTime() - new Date(a.data).getTime()));
+                }
+                setIsHistoricoModalOpen(false);
+            } else {
+                alert("Erro ao salvar registro no histórico.");
+            }
+
+        } catch (error) {
+            console.error("Erro ao salvar:", error);
+            alert("Erro de conexão.");
         }
-        setIsHistoricoModalOpen(false);
     };
 
     if (loading) {
-        return <Typography>Carregando prontuário...</Typography>;
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <CircularProgress />
+            </Box>
+        );
     }
 
     if (!paciente) {
         return (
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
                  <IconButton onClick={() => navigate('/pacientes')} sx={{ mr: 1 }}>
                     <ArrowBackIcon />
                 </IconButton>
@@ -148,10 +185,9 @@ export const ProntuarioPage = () => {
         );
     }
 
+    // Filtragem Local
     const historicoFiltrado = historico.filter(evento => {
-        if (!filtroDataInicio && !filtroDataFim) {
-            return true;
-        }
+        if (!filtroDataInicio && !filtroDataFim) return true;
         const dataEvento = new Date(evento.data + 'T00:00:00'); 
         const inicioOk = !filtroDataInicio || dataEvento >= new Date(filtroDataInicio + 'T00:00:00');
         const fimOk = !filtroDataFim || dataEvento <= new Date(filtroDataFim + 'T00:00:00');
@@ -171,10 +207,10 @@ export const ProntuarioPage = () => {
                 </Box>
 
                 <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
-                    <Typography variant="h6">Informações do Paciente</Typography>
+                    <Typography variant="h6" gutterBottom>Informações do Paciente</Typography>
                     <Typography><strong>Data Nasc.:</strong> {new Date(paciente.dataNascimento).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</Typography>
                     <Typography><strong>Responsável:</strong> {paciente.nomeResponsavel}</Typography>
-                    {/* --- INÍCIO DA ADIÇÃO DO BOTÃO --- */}
+                    
                     <Button
                         variant="outlined"
                         size="small"
@@ -185,7 +221,6 @@ export const ProntuarioPage = () => {
                     >
                         Ver / Editar Anamnese
                     </Button>
-                    {/* --- FIM DA ADIÇÃO --- */}
                 </Paper>
 
                 <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
@@ -195,43 +230,30 @@ export const ProntuarioPage = () => {
                 <Paper elevation={1} sx={{ p: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
                     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                         <TextField 
-                            size="small" 
-                            label="Data Início" 
-                            type="date" 
-                            InputLabelProps={{ shrink: true }} 
+                            size="small" label="De" type="date" InputLabelProps={{ shrink: true }} 
                             sx={{ width: { xs: 'calc(50% - 16px)', sm: 150} }}
-                            value={filtroDataInicio} 
-                            onChange={(e) => setFiltroDataInicio(e.target.value)} 
+                            value={filtroDataInicio} onChange={(e) => setFiltroDataInicio(e.target.value)} 
                         />
                         <TextField 
-                            size="small" 
-                            label="Data Fim" 
-                            type="date" 
-                            InputLabelProps={{ shrink: true }} 
+                            size="small" label="Até" type="date" InputLabelProps={{ shrink: true }} 
                             sx={{ width: { xs: 'calc(50% - 16px)', sm: 150} }}
-                            value={filtroDataFim} 
-                            onChange={(e) => setFiltroDataFim(e.target.value)} 
+                            value={filtroDataFim} onChange={(e) => setFiltroDataFim(e.target.value)} 
                         />
                         <Button 
-                            size="small" 
-                            startIcon={<ClearIcon />}
-                            onClick={() => { 
-                                setFiltroDataInicio('');
-                                setFiltroDataFim('');
-                            }}
+                            size="small" startIcon={<ClearIcon />}
+                            onClick={() => { setFiltroDataInicio(''); setFiltroDataFim(''); }}
                             disabled={!filtroDataInicio && !filtroDataFim}
                         >
-                            Limpar Filtros
+                            Limpar
                         </Button>
                     </Box>
-                    <Button variant="contained" startIcon={<AddIcon />} onClick={() => setIsHistoricoModalOpen(true)}>Adicionar Registro</Button>
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={() => setIsHistoricoModalOpen(true)}>
+                        Adicionar Registro
+                    </Button>
                 </Paper>
 
                 {historicoFiltrado.length > 0 ? ( 
-                    <Timeline 
-                        position="alternate" 
-                        sx={{ [`& .${timelineItemClasses.root}:before`]: { flex: 0, padding: 0 } }}
-                    >
+                    <Timeline position="alternate" sx={{ [`& .${timelineItemClasses.root}:before`]: { flex: 0, padding: 0 } }}>
                         {historicoFiltrado.map((evento, index) => ( 
                             <TimelineItem key={evento.id}>
                                 <TimelineOppositeContent sx={{ m: 'auto 0' }} align="right" variant="body2" color="text.secondary">
@@ -255,10 +277,8 @@ export const ProntuarioPage = () => {
                                         {evento.descricao && <Typography sx={{ whiteSpace: 'pre-wrap' }}>{evento.descricao}</Typography>}
                                         {evento.anexoUrl && (
                                             <Button 
-                                                size="small" 
-                                                startIcon={<AttachFileIcon />} 
-                                                href={evento.anexoUrl} 
-                                                target="_blank"
+                                                size="small" startIcon={<AttachFileIcon />} 
+                                                href={evento.anexoUrl} target="_blank"
                                                 download={evento.anexoNome || evento.titulo} 
                                             >
                                                 Ver Anexo {evento.anexoNome && `(${evento.anexoNome})`}
@@ -270,7 +290,9 @@ export const ProntuarioPage = () => {
                         ))}
                     </Timeline>
                 ) : (
-                    <Typography sx={{ textAlign: 'center', color: 'text.secondary' }}>Nenhum registro encontrado para o período selecionado.</Typography>
+                    <Typography sx={{ textAlign: 'center', color: 'text.secondary', py: 4 }}>
+                        Nenhum registro encontrado para o período selecionado.
+                    </Typography>
                 )}
 
                 {paciente && ( 

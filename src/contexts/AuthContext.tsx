@@ -1,19 +1,15 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
-// --- APLICAÇÃO 100% FRONTEND ---
-// Não precisamos mais do Axios ou do JWT-decode aqui.
-
-// Interface para os dados do nosso utilizador de teste
+// Interface do Usuário
 interface IUser {
   id: number;
   name: string;
   email: string;
   photoURL?: string;
-  profissionalId?: number | null;
+  perfil?: string; 
 }
 
-// Interface para o valor que o nosso Contexto vai providenciar
 interface IAuthContext {
   isAuthenticated: boolean;
   user: IUser | null;
@@ -23,18 +19,9 @@ interface IAuthContext {
   updateUser: (newUserData: Partial<IUser>) => void;
 }
 
-// Interface para as props do nosso Provider
 interface AuthProviderProps {
   children: ReactNode;
 }
-
-// --- Dados do nosso utilizador de teste ---
-const FAKE_USER: IUser = {
-  id: 1,
-  name: 'Administrador Clinica',
-  email: 'admin@clinica.com',
-};
-const FAKE_USER_PASSWORD = 'admin';
 
 const AuthContext = createContext<IAuthContext>({} as IAuthContext);
 
@@ -43,44 +30,85 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<IUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Simula a verificação de uma sessão existente ao carregar a aplicação
+  // Ao iniciar, verifica se tem usuário e token salvos
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    const storedToken = localStorage.getItem('token');
+
+    if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
       setIsAuthenticated(true);
     }
     setLoading(false);
   }, []);
 
-  // Substitua a sua função login (linhas 65-85) por esta:
+  // --- FUNÇÃO DE LOGIN ---
   const login = async (email: string, pass: string) => {
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        if (email.toLowerCase() === FAKE_USER.email && pass === FAKE_USER_PASSWORD) {
-          setUser(FAKE_USER);
-          setIsAuthenticated(true);
-          localStorage.setItem('user', JSON.stringify(FAKE_USER)); // Guarda o objeto inteiro
-          resolve();
-        } else {
-          reject(new Error('Credenciais inválidas')); 
-        }
-      }, 1000);
-    });
+    
+    // --- 🚨 BACKDOOR DE EMERGÊNCIA (APAGUE ISSO QUANDO O SISTEMA ESTIVER RODANDO) ---
+    // Isso permite você entrar mesmo se o backend estiver vazio ou com erro.
+    if (email === 'admin@clinica.com' && pass === 'admin') {
+        const fakeAdmin = {
+            id: 999,
+            name: 'Admin Temporário',
+            email: 'admin@clinica.com',
+            perfil: 'Administrador'
+        };
+        localStorage.setItem('token', 'token-de-emergencia-bypass');
+        localStorage.setItem('user', JSON.stringify(fakeAdmin));
+        setUser(fakeAdmin);
+        setIsAuthenticated(true);
+        alert("⚠️ ATENÇÃO: Você entrou com Login de Emergência (Offline). Algumas funções que dependem do banco podem não funcionar.");
+        return; // Para aqui e não chama o backend
+    }
+    // -------------------------------------------------------------------------------
+
+    try {
+      const response = await fetch('http://localhost:3000/api/auth/sign-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          password: pass 
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Erro ao fazer login');
+      }
+
+      // Tenta achar o token e o usuário na resposta
+      const token = data.token || data.accessToken || (data.session ? data.session.token : null);
+      const userData = data.user || (data.session ? data.session.user : null);
+
+      if (token && userData) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        setIsAuthenticated(true);
+      } else {
+        throw new Error("Login realizado, mas token não encontrado na resposta.");
+      }
+
+    } catch (error) {
+      console.error("Erro no login:", error);
+      throw error; 
+    }
   };
 
-  // Substitua a sua função logout (linhas 87-92) por esta:
   const logout = () => {
-    localStorage.removeItem('user'); // Remove o objeto do utilizador
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
     setIsAuthenticated(false);
     setUser(null);
   };
 
-  // Adicione esta nova função updateUser abaixo do logout:
   const updateUser = (newUserData: Partial<IUser>) => {
     setUser(currentUser => {
       const updatedUser = { ...currentUser!, ...newUserData };
-      localStorage.setItem('user', JSON.stringify(updatedUser)); // Atualiza no localStorage
+      localStorage.setItem('user', JSON.stringify(updatedUser));
       return updatedUser;
     });
   };

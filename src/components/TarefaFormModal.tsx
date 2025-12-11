@@ -12,14 +12,13 @@ import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import Autocomplete from '@mui/material/Autocomplete';
 
-// Simulação de utilizadores (deve ser consistente com a TarefasPage)
-const USUARIOS_EXEMPLO = [
-  { id: 1, nome: 'Administrador Clínica' },
-  { id: 2, nome: 'Recepcionista' },
-  { id: 3, nome: 'Dr. João' },
-];
+// Interface para o usuário que vem do Backend (para o dropdown)
+export interface IUsuarioListagem {
+    id: number;
+    nome: string; 
+}
 
-// Interface (ATUALIZADA)
+// Interface da Tarefa
 interface ITarefa {
     id: number;
     titulo: string;
@@ -35,17 +34,16 @@ interface TarefaFormModalProps {
     onClose: () => void;
     onSave: (tarefa: Omit<ITarefa, 'id' | 'concluida'> & { id?: number }) => void;
     tarefaParaEditar?: ITarefa | null;
+    usuarios: IUsuarioListagem[]; // <--- NOVO: Recebe a lista real do pai
 }
 
-export const TarefaFormModal = ({ open, onClose, onSave, tarefaParaEditar }: TarefaFormModalProps) => {
-    // Estados (ATUALIZADOS)
+export const TarefaFormModal = ({ open, onClose, onSave, tarefaParaEditar, usuarios }: TarefaFormModalProps) => {
     const [titulo, setTitulo] = useState('');
     const [descricao, setDescricao] = useState('');
     const [prioridade, setPrioridade] = useState<'Baixa' | 'Média' | 'Alta'>('Baixa');
     const [prazo, setPrazo] = useState('');
     const [atribuidoAId, setAtribuidoAId] = useState<number | null>(null);
 
-    // useEffect (ATUALIZADO)
     useEffect(() => {
         if (tarefaParaEditar) {
             setTitulo(tarefaParaEditar.titulo);
@@ -62,7 +60,6 @@ export const TarefaFormModal = ({ open, onClose, onSave, tarefaParaEditar }: Tar
         }
     }, [tarefaParaEditar, open]);
 
-    // handleSave (ATUALIZADO)
     const handleSave = () => {
         const tarefaData = {
             id: tarefaParaEditar?.id,
@@ -79,7 +76,6 @@ export const TarefaFormModal = ({ open, onClose, onSave, tarefaParaEditar }: Tar
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
             <DialogTitle>{tarefaParaEditar ? 'Editar Tarefa' : 'Adicionar Nova Tarefa'}</DialogTitle>
             <DialogContent>
-                {/* JSX (ATUALIZADO) */}
                 <Box component="form" noValidate autoComplete="off" sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <TextField
                         autoFocus
@@ -105,17 +101,22 @@ export const TarefaFormModal = ({ open, onClose, onSave, tarefaParaEditar }: Tar
                         value={descricao}
                         onChange={(e) => setDescricao(e.target.value)}
                     />
+                    
+                    {/* Autocomplete agora usa a prop 'usuarios' real */}
                     <Autocomplete
-                        options={USUARIOS_EXEMPLO}
+                        options={usuarios} 
                         getOptionLabel={(option) => option.nome}
-                        value={USUARIOS_EXEMPLO.find(u => u.id === atribuidoAId) || null}
+                        // Encontra o usuário na lista real baseado no ID
+                        value={usuarios.find(u => u.id === atribuidoAId) || null}
                         onChange={(_event, newValue) => {
                             setAtribuidoAId(newValue ? newValue.id : null);
                         }}
                         renderInput={(params) => (
                             <TextField {...params} label="Atribuir a (opcional)" variant="outlined" />
                         )}
+                        noOptionsText="Nenhum usuário encontrado"
                     />
+
                     <FormControl fullWidth margin="dense">
                         <InputLabel id="prioridade-label">Prioridade</InputLabel>
                         <Select
