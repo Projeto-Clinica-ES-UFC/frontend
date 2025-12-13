@@ -74,45 +74,51 @@ export const api = {
 
 // Domain specific services
 
-export const authService = {
-  signIn: (email: string, pass: string) => api.post('/api/auth/sign-in/email', { email, password: pass }),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  signUp: (userData: any) => api.post('/api/auth/sign-up/email', userData),
-};
-
 export const agreementsService = {
-  getAll: () => api.get('/agreements'),
+  getAll: (params?: any) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get(`/agreements${query}`);
+  },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   create: (data: any) => api.post('/agreements', data),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  update: (id: number | string, data: any) => api.put(`/agreements/${id}`, data),
+  update: (id: number | string, data: any) => api.patch(`/agreements/${id}`, data),
   delete: (id: number | string) => api.delete(`/agreements/${id}`),
 };
 
 export const usersService = {
-  getAll: () => api.get('/users'),
+  getAll: (params?: any) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get(`/users${query}`);
+  },
   getById: (id: number | string) => api.get(`/users/${id}`),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   create: (data: any) => api.post('/users', data), // Usually sign-up handles this, but keeping for admin maybe
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  update: (id: number | string, data: any) => api.put(`/users/${id}`, data),
+  update: (id: number | string, data: any) => api.patch(`/users/${id}`, data),
   delete: (id: number | string) => api.delete(`/users/${id}`),
 };
 
 export const patientsService = {
-  getAll: () => api.get('/patients'),
+  getAll: (params?: any) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get(`/patients${query}`);
+  },
   getById: (id: number | string) => api.get(`/patients/${id}`),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   create: (data: any) => api.post('/patients', data),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  update: (id: number | string, data: any) => api.put(`/patients/${id}`, data),
+  update: (id: number | string, data: any) => api.patch(`/patients/${id}`, data),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   patch: (id: number | string, data: any) => api.patch(`/patients/${id}`, data),
   delete: (id: number | string) => api.delete(`/patients/${id}`),
   
-  getHistory: (id: number | string) => api.get(`/patients/${id}/history`),
+  getHistory: (id: number | string, params?: any) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get(`/patients/${id}/medical-record${query}`);
+  },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createHistory: (id: number | string, data: any) => api.post(`/patients/${id}/history`, data), // Assuming POST for adding history item? Or PUT?
+  createHistory: (id: number | string, data: any) => api.post(`/patients/${id}/medical-record`, data), // Assuming POST for adding history item? Or PUT?
   // Checking ProntuarioPage.tsx: const res = await fetch(`http://localhost:3000/patients/${targetPacienteId}/history`, { method: 'POST' ...
   // Yes it is POST.
 
@@ -122,42 +128,54 @@ export const patientsService = {
 };
 
 export const tasksService = {
-  getAll: () => api.get('/tasks'),
+  getAll: (params?: any) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get(`/tasks${query}`);
+  },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   create: (data: any) => api.post('/tasks', data),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  update: (id: number | string, data: any) => api.put(`/tasks/${id}`, data),
+  update: (id: number | string, data: any) => api.patch(`/tasks/${id}`, data),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   patch: (id: number | string, data: any) => api.patch(`/tasks/${id}`, data),
   delete: (id: number | string) => api.delete(`/tasks/${id}`),
 };
 
 export const appointmentsService = {
-  getAll: () => api.get('/appointments'),
+  getAll: (params?: any) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get(`/appointments${query}`);
+  },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   create: (data: any) => api.post('/appointments', data),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  update: (id: number | string, data: any) => api.put(`/appointments/${id}`, data),
+  update: (id: number | string, data: any) => api.patch(`/appointments/${id}`, data),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   patch: (id: number | string, data: any) => api.patch(`/appointments/${id}`, data),
   delete: (id: number | string) => api.delete(`/appointments/${id}`),
 };
 
 export const professionalsService = {
-  getAll: () => api.get('/professionals'),
+  getAll: (params?: any) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get(`/professionals${query}`);
+  },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   create: (data: any) => api.post('/professionals', data),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  update: (id: number | string, data: any) => api.put(`/professionals/${id}`, data),
+  update: (id: number | string, data: any) => api.patch(`/professionals/${id}`, data),
   delete: (id: number | string) => api.delete(`/professionals/${id}`),
 };
 
 export const specialtiesService = {
-  getAll: () => api.get('/specialties'),
+  getAll: (params?: any) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get(`/specialties${query}`);
+  },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   create: (data: any) => api.post('/specialties', data),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  update: (id: number | string, data: any) => api.put(`/specialties/${id}`, data),
+  // update: (id: number | string, data: any) => api.put(`/specialties/${id}`, data),
   delete: (id: number | string) => api.delete(`/specialties/${id}`),
 };
 

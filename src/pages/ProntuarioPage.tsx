@@ -92,7 +92,14 @@ export const ProntuarioPage = () => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const resPac: any = await patientsService.getById(pacienteId);
                 if (resPac) {
-                    setPaciente(resPac);
+                    setPaciente({
+                        id: resPac.id,
+                        nome: resPac.name || resPac.nome,
+                        dataNascimento: resPac.birthDate || resPac.dataNascimento,
+                        nomeResponsavel: resPac.guardianName || resPac.nomeResponsavel,
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        sexo: (resPac.gender || resPac.sexo) as any
+                    });
                 } else {
                     setPaciente(null);
                 }

@@ -55,7 +55,19 @@ export const AnamnesePage = () => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const dadosPaciente: any = await patientsService.getById(pacienteId);
                 if (dadosPaciente) {
-                    setPaciente(dadosPaciente);
+                    setPaciente({
+                        id: dadosPaciente.id,
+                        nome: dadosPaciente.name || dadosPaciente.nome,
+                        dataNascimento: dadosPaciente.birthDate || dadosPaciente.dataNascimento,
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        sexo: (dadosPaciente.gender || dadosPaciente.sexo) as any,
+                        telefoneResponsavel: dadosPaciente.phone || dadosPaciente.telefoneResponsavel,
+                        nomeResponsavel: dadosPaciente.guardianName || dadosPaciente.nomeResponsavel,
+                        // Extra fields that might come in English or Portuguese
+                        profissao: dadosPaciente.occupation || dadosPaciente.profissao,
+                        endereco: dadosPaciente.address || dadosPaciente.endereco,
+                        cidade: dadosPaciente.city || dadosPaciente.cidade,
+                    });
                 }
 
                 // 2. Busca Anamnese (Se existir)

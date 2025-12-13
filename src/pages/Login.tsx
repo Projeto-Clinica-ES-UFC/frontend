@@ -59,7 +59,7 @@ export const Login = () => {
 
     try {
       // Chama a função login do AuthContext (que conecta no backend)
-      await login(email, password);
+      await login(email, password, rememberMe);
       // Se der certo, redireciona
       navigate('/');
     } catch (err: unknown) {

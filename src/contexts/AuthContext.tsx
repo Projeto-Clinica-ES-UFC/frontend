@@ -20,7 +20,7 @@ interface IAuthContext {
   isAuthenticated: boolean;
   user: IUser | null;
   loading: boolean;
-  login: (email: string, pass: string) => Promise<void>;
+  login: (email: string, pass: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (newUserData: Partial<IUser>) => void;
 }
@@ -57,10 +57,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [session]);
 
   // --- FUNÇÃO DE LOGIN ---
-  const login = async (email: string, pass: string) => {
+  const login = async (email: string, pass: string, rememberMe?: boolean) => {
     const { error } = await authClient.signIn.email({
       email,
       password: pass,
+      rememberMe,
     });
 
     if (error) {

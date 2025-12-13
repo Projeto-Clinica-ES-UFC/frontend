@@ -39,10 +39,13 @@ export const ProfissionaisPanel = () => {
     // 3. Buscar Profissionais (GET)
     const carregarProfissionais = async () => {
         try {
-            const data = await professionalsService.getAll();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const response: any = await professionalsService.getAll();
+            const lista = response.data || response;
+
             // Blindagem contra tela branca
-            if (Array.isArray(data)) {
-                setProfissionais(data);
+            if (Array.isArray(lista)) {
+                setProfissionais(lista);
             } else {
                 setProfissionais([]);
             }
@@ -74,9 +77,10 @@ export const ProfissionaisPanel = () => {
     // 4. Salvar (POST / PUT)
     const handleSalvarProfissional = async (dados: Omit<IProfissional, 'id'> & { id?: number }) => {
         const payload = {
-            nome: dados.nome,
+            name: dados.nome,
             email: dados.email,
-            especialidade: dados.especialidade
+            specialty: dados.especialidade,
+            // Backend generates userId and creates User record automatically
         };
 
         try {

@@ -13,7 +13,8 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Chip from '@mui/material/Chip';
 
-import { usersService, authService } from '../services/rest-client';
+import { usersService } from '../services/rest-client';
+import { authClient } from '../lib/auth-client';
 
 // Ícones
 import AddIcon from '@mui/icons-material/Add';
@@ -92,15 +93,19 @@ export const UsuariosPanel = () => {
             } else {
                 // --- CRIAÇÃO (POST /api/auth/sign-up) ---
                 // Usamos a rota de Auth para criar contas novas com senha
-                const payload = {
-                    name: dados.nome,
+                const { error } = await authClient.signUp.email({
                     email: dados.email,
-                    password: dados.password,
-                    passwordConfirmation: dados.password, // Better-Auth exige confirmação
-                    role: dados.perfil
-                };
+                    password: dados.password || '', // Password is required for sign up
+                    name: dados.nome,
+                    // Pass extra fields if your schema supports them
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    role: dados.perfil, 
+                } as any);
 
-                await authService.signUp(payload);
+                if (error) {
+                    throw new Error(error.message || "Erro ao criar usuário");
+                }
+
                 alert("Usuário criado com sucesso!");
                 carregarUsuarios();
                 handleFecharModal();

@@ -85,7 +85,11 @@ export const AgendaProfissionalPage = () => {
 
             if (Array.isArray(dataAg)) setAgendamentos(dataAg);
             if (Array.isArray(dataPac)) setListaPacientes(dataPac);
-            if (Array.isArray(dataProf)) setListaProfissionais(dataProf);
+            
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const profList = (dataProf as any).data || dataProf;
+            if (Array.isArray(profList)) setListaProfissionais(profList);
+            
             if (Array.isArray(dataEsp)) setListaEspecialidades(dataEsp);
 
         } catch (error) {

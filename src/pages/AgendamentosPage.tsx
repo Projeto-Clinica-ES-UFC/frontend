@@ -85,7 +85,10 @@ export const AgendamentosPage = () => {
 
             if(Array.isArray(dataAgendamentos)) setAgendamentos(dataAgendamentos);
             if(Array.isArray(dataPacientes)) setListaPacientes(dataPacientes);
-            if(Array.isArray(dataProfissionais)) setListaProfissionais(dataProfissionais);
+            
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const profList = (dataProfissionais as any).data || dataProfissionais;
+            if(Array.isArray(profList)) setListaProfissionais(profList);
 
         } catch (error) {
             console.error("Erro ao carregar dados:", error);

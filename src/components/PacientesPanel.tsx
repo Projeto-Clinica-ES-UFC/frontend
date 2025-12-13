@@ -60,9 +60,22 @@ export const PacientesPanel = () => {
     // 3. Buscar Pacientes (GET)
     const carregarPacientes = async () => {
         try {
-            const data = await patientsService.getAll();
-            if (Array.isArray(data)) {
-                setPacientes(data);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const response: any = await patientsService.getAll();
+            const lista = response.data || response; // Handle { data: [...] } or [...]
+
+            if (Array.isArray(lista)) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const mappedPacientes: IPaciente[] = lista.map((p: any) => ({
+                    id: p.id,
+                    nome: p.name,
+                    cpf: p.cpf,
+                    dataNascimento: p.dateOfBirth,
+                    nomeResponsavel: p.responsibleName,
+                    telefoneResponsavel: p.responsiblePhone,
+                    status: 'Agendado' // Backend does not store status on patient
+                }));
+                setPacientes(mappedPacientes);
             } else {
                 setPacientes([]);
             }
@@ -93,18 +106,27 @@ export const PacientesPanel = () => {
 
     // 4. Salvar (POST / PUT)
     const handleSalvarPaciente = async (pacienteData: Omit<IPaciente, 'id' | 'status'> & { id?: number }) => { 
-        // Define payload (novo paciente nasce como Agendado)
-        const payload = {
-            ...pacienteData,
-            status: pacienteData.id ? undefined : 'Agendado' 
-        };
-
         try {
             if (pacienteData.id) {
                 // Edição
+                const payload = {
+                    name: pacienteData.nome,
+                    cpf: pacienteData.cpf,
+                    dateOfBirth: pacienteData.dataNascimento,
+                    responsibleName: pacienteData.nomeResponsavel,
+                    responsiblePhone: pacienteData.telefoneResponsavel,
+                };
                 await patientsService.update(pacienteData.id, payload);
             } else {
                 // Criação
+                const payload = {
+                    name: pacienteData.nome,
+                    cpf: pacienteData.cpf,
+                    dateOfBirth: pacienteData.dataNascimento,
+                    responsibleName: pacienteData.nomeResponsavel,
+                    responsiblePhone: pacienteData.telefoneResponsavel,
+                    // Status is not part of Patient model
+                };
                 await patientsService.create(payload);
             }
             carregarPacientes();
@@ -134,12 +156,16 @@ export const PacientesPanel = () => {
         );
 
         // Envia para o servidor
+        // NOTE: Backend Patient model does not have status. Status is on Appointment.
+        // For now, we only update local state.
+        /*
         try {
             await patientsService.patch(pacienteId, { status: novoStatus });
         } catch (err) {
             console.error("Erro ao salvar status:", err);
             carregarPacientes(); // Reverte se der erro
         }
+        */
     };
 
     const handleChangeView = (_event: React.MouseEvent<HTMLElement>, newView: 'lista' | 'kanban' | null) => {
