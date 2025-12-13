@@ -17,6 +17,8 @@ import { useNavigate } from 'react-router-dom';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment'; // Novo
 
+import { patientsService } from '../services/rest-client';
+
 // Ícones
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -55,37 +57,19 @@ export const PacientesPanel = () => {
     const [filtroDataFim, setFiltroDataFim] = useState('');
     const [busca, setBusca] = useState(''); // Novo filtro de busca textual
 
-    // 2. Helper de Autenticação
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-    };
-
     // 3. Buscar Pacientes (GET)
-    const carregarPacientes = () => {
-        fetch('http://localhost:3000/patients', {
-            method: 'GET',
-            headers: getAuthHeaders()
-        })
-        .then(res => {
-            if (res.status === 401) throw new Error('Não autorizado');
-            if (!res.ok) throw new Error('Erro na API');
-            return res.json();
-        })
-        .then(data => {
+    const carregarPacientes = async () => {
+        try {
+            const data = await patientsService.getAll();
             if (Array.isArray(data)) {
                 setPacientes(data);
             } else {
                 setPacientes([]);
             }
-        })
-        .catch(err => {
+        } catch (err) {
             console.error("Erro ao carregar pacientes:", err);
             setPacientes([]);
-        });
+        }
     };
 
     // Carrega ao abrir
@@ -108,69 +92,54 @@ export const PacientesPanel = () => {
     };
 
     // 4. Salvar (POST / PUT)
-    const handleSalvarPaciente = (pacienteData: Omit<IPaciente, 'id' | 'status'> & { id?: number }) => { 
+    const handleSalvarPaciente = async (pacienteData: Omit<IPaciente, 'id' | 'status'> & { id?: number }) => { 
         // Define payload (novo paciente nasce como Agendado)
         const payload = {
             ...pacienteData,
             status: pacienteData.id ? undefined : 'Agendado' 
         };
-        const headers = getAuthHeaders();
 
-        if (pacienteData.id) {
-            // Edição
-            fetch(`http://localhost:3000/patients/${pacienteData.id}`, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify(payload)
-            }).then(res => {
-                if (res.ok) {
-                    carregarPacientes();
-                    handleFecharModal();
-                } else alert("Erro ao editar paciente.");
-            });
-        } else {
-            // Criação
-            fetch('http://localhost:3000/patients', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(payload)
-            }).then(res => {
-                if (res.ok) {
-                    carregarPacientes();
-                    handleFecharModal();
-                } else alert("Erro ao criar paciente.");
-            });
+        try {
+            if (pacienteData.id) {
+                // Edição
+                await patientsService.update(pacienteData.id, payload);
+            } else {
+                // Criação
+                await patientsService.create(payload);
+            }
+            carregarPacientes();
+            handleFecharModal();
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao salvar paciente.");
         }
     };
 
     // 5. Apagar (DELETE)
-    const handleApagar = (idDoPaciente: number) => {
-        fetch(`http://localhost:3000/patients/${idDoPaciente}`, {
-            method: 'DELETE',
-            headers: getAuthHeaders()
-        }).then(res => {
-            if (res.ok) {
-                setPacientes(atuais => atuais.filter(p => p.id !== idDoPaciente));
-            } else alert("Erro ao excluir paciente.");
-        });
+    const handleApagar = async (idDoPaciente: number) => {
+        try {
+            await patientsService.delete(idDoPaciente);
+            setPacientes(atuais => atuais.filter(p => p.id !== idDoPaciente));
+        } catch (error) {
+            console.error(error);
+             alert("Erro ao excluir paciente.");
+        }
     };
 
     // 6. Mudar Status via Kanban (PATCH)
-    const handlePacienteStatusChange = (pacienteId: number, novoStatus: IPaciente['status']) => {
+    const handlePacienteStatusChange = async (pacienteId: number, novoStatus: IPaciente['status']) => {
         // Atualização Otimista na tela
         setPacientes(atuais => 
             atuais.map(p => p.id === pacienteId ? { ...p, status: novoStatus } : p)
         );
 
         // Envia para o servidor
-        fetch(`http://localhost:3000/patients/${pacienteId}`, {
-            method: 'PATCH',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ status: novoStatus })
-        }).catch(err => {
+        try {
+            await patientsService.patch(pacienteId, { status: novoStatus });
+        } catch (err) {
             console.error("Erro ao salvar status:", err);
             carregarPacientes(); // Reverte se der erro
-        });
+        }
     };
 
     const handleChangeView = (_event: React.MouseEvent<HTMLElement>, newView: 'lista' | 'kanban' | null) => {

@@ -9,6 +9,8 @@ import Alert from '@mui/material/Alert';
 import Collapse from '@mui/material/Collapse';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { patientsService } from '../services/rest-client';
+
 // Ícones
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
@@ -39,15 +41,6 @@ export const AnamnesePage = () => {
     const [loading, setLoading] = useState(true);
     const [showSuccess, setShowSuccess] = useState(false);
 
-    // Helper de Auth
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-    };
-
     // Cor dinâmica baseada no sexo (se disponível) ou padrão
     const mainColor = paciente?.sexo === 'F' ? '#F48FB1' : '#2196F3';
 
@@ -58,22 +51,21 @@ export const AnamnesePage = () => {
         const carregarDados = async () => {
             setLoading(true);
             try {
-                const headers = getAuthHeaders();
-                
                 // 1. Busca Paciente
-                const resPaciente = await fetch(`http://localhost:3000/patients/${pacienteId}`, { headers });
-                if (resPaciente.ok) {
-                    const dadosPaciente = await resPaciente.json();
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const dadosPaciente: any = await patientsService.getById(pacienteId);
+                if (dadosPaciente) {
                     setPaciente(dadosPaciente);
                 }
 
                 // 2. Busca Anamnese (Se existir)
-                const resAnamnese = await fetch(`http://localhost:3000/patients/${pacienteId}/anamnesis`, { headers });
-                if (resAnamnese.ok) {
-                    const dadosAnamnese = await resAnamnese.json();
+                try {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const dadosAnamnese: any = await patientsService.getAnamnesis(pacienteId);
                     setAnamneseData(dadosAnamnese); // Preenche o form
-                } else if (resAnamnese.status === 404) {
-                    setAnamneseData(null); // Anamnese nova (vazia)
+                } catch {
+                    // Se der 404 ou erro, assume vazia
+                    setAnamneseData(null);
                 }
 
             } catch (error) {
@@ -96,18 +88,9 @@ export const AnamnesePage = () => {
         if (!anamneseData || !pacienteId) return;
 
         try {
-            const res = await fetch(`http://localhost:3000/patients/${pacienteId}/anamnesis`, {
-                method: 'PUT', // ou POST, dependendo da sua API (PUT geralmente cria ou atualiza)
-                headers: getAuthHeaders(),
-                body: JSON.stringify(anamneseData)
-            });
-
-            if (res.ok) {
-                setShowSuccess(true);
-                setTimeout(() => setShowSuccess(false), 4000);
-            } else {
-                alert("Erro ao salvar anamnese. Tente novamente.");
-            }
+            await patientsService.saveAnamnesis(pacienteId, anamneseData);
+            setShowSuccess(true);
+            setTimeout(() => setShowSuccess(false), 4000);
         } catch (error) {
             console.error("Erro ao salvar:", error);
             alert("Erro de conexão ao salvar.");

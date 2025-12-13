@@ -12,6 +12,8 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 
+import { specialtiesService } from '../services/rest-client';
+
 // Ícones
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -32,39 +34,21 @@ export const EspecialidadesPanel = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [especialidadeParaEditar, setEspecialidadeParaEditar] = useState<IEspecialidade | null>(null);
 
-    // 2. Helper para pegar o Token (Crachá)
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-    };
-
     // 3. Função de Carregar (GET)
-    const carregarEspecialidades = () => {
-        fetch('http://localhost:3000/specialties', {
-            method: 'GET',
-            headers: getAuthHeaders()
-        })
-            .then(res => {
-                if (res.status === 401) throw new Error('401 Unauthorized');
-                if (!res.ok) throw new Error('Erro na API');
-                return res.json();
-            })
-            .then(data => {
-                // Blindagem: só salva se for array
-                if (Array.isArray(data)) {
-                    setEspecialidades(data);
-                } else {
-                    console.error("Backend não retornou lista:", data);
-                    setEspecialidades([]);
-                }
-            })
-            .catch(err => {
-                console.error("Erro ao carregar especialidades:", err);
+    const carregarEspecialidades = async () => {
+        try {
+            const data = await specialtiesService.getAll();
+            // Blindagem: só salva se for array
+            if (Array.isArray(data)) {
+                setEspecialidades(data);
+            } else {
+                console.error("Backend não retornou lista:", data);
                 setEspecialidades([]);
-            });
+            }
+        } catch (err) {
+            console.error("Erro ao carregar especialidades:", err);
+            setEspecialidades([]);
+        }
     };
 
     // Carrega ao abrir a tela
@@ -87,62 +71,36 @@ export const EspecialidadesPanel = () => {
     };
 
     // 4. Função Salvar (POST / PUT)
-    const handleSalvarEspecialidade = (dados: Omit<IEspecialidade, 'id'> & { id?: number }) => {
+    const handleSalvarEspecialidade = async (dados: Omit<IEspecialidade, 'id'> & { id?: number }) => {
         const payload = { nome: dados.nome };
-        const headers = getAuthHeaders();
 
-        if (dados.id) {
-            // EDIÇÃO
-            fetch(`http://localhost:3000/specialties/${dados.id}`, {
-                method: 'PUT', // ou PATCH, dependendo do backend (o padrão REST é PUT para atualizar tudo)
-                headers,
-                body: JSON.stringify(payload)
-            })
-            .then(res => {
-                if (res.ok) {
-                    carregarEspecialidades();
-                    handleFecharModal();
-                } else {
-                    alert("Erro ao editar especialidade.");
-                }
-            })
-            .catch(err => console.error(err));
-
-        } else {
-            // CRIAÇÃO
-            fetch('http://localhost:3000/specialties', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(payload)
-            })
-            .then(res => {
-                if (res.ok) {
-                    carregarEspecialidades();
-                    handleFecharModal();
-                } else {
-                    alert("Erro ao criar especialidade.");
-                }
-            })
-            .catch(err => console.error(err));
+        try {
+            if (dados.id) {
+                // EDIÇÃO
+                await specialtiesService.update(dados.id, payload);
+            } else {
+                // CRIAÇÃO
+                await specialtiesService.create(payload);
+            }
+            carregarEspecialidades();
+            handleFecharModal();
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao salvar especialidade.");
         }
     };
 
     // 5. Função Apagar (DELETE)
-    const handleApagar = (id: number) => {
+    const handleApagar = async (id: number) => {
         if (window.confirm('Tem a certeza que deseja excluir esta especialidade?')) {
-            fetch(`http://localhost:3000/specialties/${id}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders()
-            })
-            .then(res => {
-                if (res.ok) {
-                    // Remove da tela sem precisar recarregar tudo
-                    setEspecialidades(atuais => atuais.filter(e => e.id !== id));
-                } else {
-                    alert("Erro ao excluir especialidade.");
-                }
-            })
-            .catch(err => console.error(err));
+            try {
+                await specialtiesService.delete(id);
+                // Remove da tela sem precisar recarregar tudo
+                setEspecialidades(atuais => atuais.filter(e => e.id !== id));
+            } catch (err) {
+                console.error(err);
+                alert("Erro ao excluir especialidade.");
+            }
         }
     };
 

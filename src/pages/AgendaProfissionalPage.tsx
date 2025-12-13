@@ -19,6 +19,8 @@ import interactionPlugin from '@fullcalendar/interaction';
 import ptBrLocale from '@fullcalendar/core/locales/pt-br';
 import { type EventClickArg, type DateSelectArg, type EventDropArg } from '@fullcalendar/core';
 
+import { appointmentsService, patientsService, professionalsService, specialtiesService } from '../services/rest-client';
+
 // Ícones
 import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircleOutline';
@@ -71,30 +73,20 @@ export const AgendaProfissionalPage = () => {
     const [popoverAnchorEl, setPopoverAnchorEl] = useState<HTMLElement | null>(null);
     const [eventoSelecionadoPopover, setEventoSelecionadoPopover] = useState<IEvento | null>(null);
 
-    // Helper de Auth
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-    };
-
     // Carregamento de Dados
     const carregarTudo = async () => {
         try {
-            const headers = getAuthHeaders();
-            const [resAg, resPac, resProf, resEsp] = await Promise.all([
-                fetch('http://localhost:3000/appointments', { headers }),
-                fetch('http://localhost:3000/patients', { headers }),
-                fetch('http://localhost:3000/professionals', { headers }),
-                fetch('http://localhost:3000/specialties', { headers })
+            const [dataAg, dataPac, dataProf, dataEsp] = await Promise.all([
+                appointmentsService.getAll(),
+                patientsService.getAll(),
+                professionalsService.getAll(),
+                specialtiesService.getAll()
             ]);
 
-            if (resAg.ok) setAgendamentos(await resAg.json());
-            if (resPac.ok) setListaPacientes(await resPac.json());
-            if (resProf.ok) setListaProfissionais(await resProf.json());
-            if (resEsp.ok) setListaEspecialidades(await resEsp.json());
+            if (Array.isArray(dataAg)) setAgendamentos(dataAg);
+            if (Array.isArray(dataPac)) setListaPacientes(dataPac);
+            if (Array.isArray(dataProf)) setListaProfissionais(dataProf);
+            if (Array.isArray(dataEsp)) setListaEspecialidades(dataEsp);
 
         } catch (error) {
             console.error("Erro ao carregar dados:", error);
@@ -171,7 +163,7 @@ export const AgendaProfissionalPage = () => {
     };
 
     // CORREÇÃO AQUI: Tipagem explícita para evitar 'any'
-    const handleSalvarAgendamento = (dados: {
+    const handleSalvarAgendamento = async (dados: {
         id?: string;
         title?: string;
         start: string;
@@ -181,7 +173,6 @@ export const AgendaProfissionalPage = () => {
         profissionalId?: number | null;
         pendenciaUnimed?: boolean;
     }) => {
-        const headers = getAuthHeaders();
         const payload = {
             ...dados,
             pacienteId: Number(dados.pacienteId),
@@ -189,22 +180,20 @@ export const AgendaProfissionalPage = () => {
             pendenciaUnimed: Boolean(dados.pendenciaUnimed)
         };
 
-        if (dados.id) {
-            fetch(`http://localhost:3000/appointments/${dados.id}`, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify(payload)
-            }).then(() => { carregarTudo(); setIsModalOpen(false); });
-        } else {
-            fetch('http://localhost:3000/appointments', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(payload)
-            }).then(() => { carregarTudo(); setIsModalOpen(false); });
+        try {
+            if (dados.id) {
+                await appointmentsService.update(dados.id, payload);
+            } else {
+                await appointmentsService.create(payload);
+            }
+            carregarTudo();
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error(error);
         }
     };
 
-    const handleEventDrop = (dropInfo: EventDropArg) => {
+    const handleEventDrop = async (dropInfo: EventDropArg) => {
         const novasDatas = {
             start: dropInfo.event.startStr,
             end: dropInfo.event.endStr || undefined
@@ -212,38 +201,37 @@ export const AgendaProfissionalPage = () => {
         // Atualização Otimista
         setAgendamentos(prev => prev.map(ag => ag.id === dropInfo.event.id ? { ...ag, ...novasDatas } : ag));
         
-        fetch(`http://localhost:3000/appointments/${dropInfo.event.id}`, {
-            method: 'PATCH',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(novasDatas)
-        }).catch(() => carregarTudo());
+        try {
+            await appointmentsService.patch(dropInfo.event.id, novasDatas);
+        } catch {
+            carregarTudo();
+        }
     };
 
     // Popover Actions
     const handleClosePopover = () => { setPopoverAnchorEl(null); setEventoSelecionadoPopover(null); };
     
-    const handleChangeStatus = (novoStatus: StatusAgendamento) => {
+    const handleChangeStatus = async (novoStatus: StatusAgendamento) => {
         if (!eventoSelecionadoPopover) return;
-        fetch(`http://localhost:3000/appointments/${eventoSelecionadoPopover.id}`, {
-            method: 'PATCH',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ status: novoStatus })
-        }).then(() => {
+        try {
+            await appointmentsService.patch(eventoSelecionadoPopover.id, { status: novoStatus });
             setAgendamentos(prev => prev.map(ag => ag.id === eventoSelecionadoPopover.id ? { ...ag, status: novoStatus } : ag));
             handleClosePopover();
-        });
+        } catch (error) {
+            console.error(error);
+        }
     };
 
-    const handleApagar = () => {
+    const handleApagar = async () => {
         if (!eventoSelecionadoPopover) return;
         if(confirm('Excluir?')) {
-            fetch(`http://localhost:3000/appointments/${eventoSelecionadoPopover.id}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders()
-            }).then(() => {
-                setAgendamentos(prev => prev.filter(ag => ag.id !== eventoSelecionadoPopover.id));
+            try {
+                await appointmentsService.delete(eventoSelecionadoPopover.id);
+                setAgendamentos(prev => prev.filter(ag => ag.id !== eventoSelecionadoPopover!.id));
                 handleClosePopover();
-            });
+            } catch (error) {
+                 console.error(error);
+            }
         }
     };
 

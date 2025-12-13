@@ -17,6 +17,8 @@ import TimelineContent from '@mui/lab/TimelineContent';
 import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
 import TimelineDot from '@mui/lab/TimelineDot';
 
+import { patientsService } from '../services/rest-client';
+
 // Ícones
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EventIcon from '@mui/icons-material/Event';
@@ -79,15 +81,6 @@ export const ProntuarioPage = () => {
     const [filtroDataInicio, setFiltroDataInicio] = useState(''); 
     const [filtroDataFim, setFiltroDataFim] = useState(''); 
 
-    // Helper de Auth
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-    };
-
     // 1. Carregar Dados Iniciais
     useEffect(() => {
         if (!pacienteId) return;
@@ -95,24 +88,21 @@ export const ProntuarioPage = () => {
         const carregarProntuario = async () => {
             setLoading(true);
             try {
-                const headers = getAuthHeaders();
-                
                 // Busca dados do Paciente
-                const resPac = await fetch(`http://localhost:3000/patients/${pacienteId}`, { headers });
-                if (resPac.ok) {
-                    setPaciente(await resPac.json());
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const resPac: any = await patientsService.getById(pacienteId);
+                if (resPac) {
+                    setPaciente(resPac);
                 } else {
                     setPaciente(null);
                 }
 
                 // Busca Histórico (Timeline)
-                const resHist = await fetch(`http://localhost:3000/patients/${pacienteId}/history`, { headers });
-                if (resHist.ok) {
-                    const dadosHist = await resHist.json();
-                    if(Array.isArray(dadosHist)) {
-                        // Ordena por data (mais recente primeiro)
-                        setHistorico(dadosHist.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()));
-                    }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const dadosHist: any = await patientsService.getHistory(pacienteId);
+                if(Array.isArray(dadosHist)) {
+                    // Ordena por data (mais recente primeiro)
+                    setHistorico(dadosHist.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()));
                 } else {
                     setHistorico([]);
                 }
@@ -142,27 +132,19 @@ export const ProntuarioPage = () => {
                 // anexoNome: eventoData.anexo?.name // Opcional, se o backend suportar salvar nome sem arquivo
             };
 
-            const res = await fetch(`http://localhost:3000/patients/${targetPacienteId}/history`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify(payload)
-            });
+            await patientsService.createHistory(targetPacienteId, payload);
 
-            if (res.ok) {
-                // Recarrega a lista para mostrar o novo item
-                const resHist = await fetch(`http://localhost:3000/patients/${targetPacienteId}/history`, { headers: getAuthHeaders() });
-                if (resHist.ok) {
-                    const dadosHist = await resHist.json();
-                    setHistorico(dadosHist.sort((a: IHistoricoEvento, b: IHistoricoEvento) => new Date(b.data).getTime() - new Date(a.data).getTime()));
-                }
-                setIsHistoricoModalOpen(false);
-            } else {
-                alert("Erro ao salvar registro no histórico.");
+            // Recarrega a lista para mostrar o novo item
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const dadosHist: any = await patientsService.getHistory(targetPacienteId);
+            if(Array.isArray(dadosHist)) {
+                setHistorico(dadosHist.sort((a: IHistoricoEvento, b: IHistoricoEvento) => new Date(b.data).getTime() - new Date(a.data).getTime()));
             }
+            setIsHistoricoModalOpen(false);
 
         } catch (error) {
             console.error("Erro ao salvar:", error);
-            alert("Erro de conexão.");
+            alert("Erro ao salvar registro no histórico.");
         }
     };
 

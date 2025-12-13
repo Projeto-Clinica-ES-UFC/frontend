@@ -13,6 +13,8 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Chip from '@mui/material/Chip';
 
+import { usersService, authService } from '../services/rest-client';
+
 // Ícones
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -36,38 +38,20 @@ export const UsuariosPanel = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [usuarioParaEditar, setUsuarioParaEditar] = useState<IUsuario | null>(null);
 
-    // 2. Helper de Autenticação
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-    };
-
     // 3. Buscar Usuários (GET)
-    const carregarUsuarios = () => {
-        fetch('http://localhost:3000/users', {
-            method: 'GET',
-            headers: getAuthHeaders()
-        })
-        .then(res => {
-            if (res.status === 401) throw new Error('Não autorizado');
-            if (!res.ok) throw new Error('Erro na API');
-            return res.json();
-        })
-        .then(data => {
+    const carregarUsuarios = async () => {
+        try {
+            const data = await usersService.getAll();
             if (Array.isArray(data)) {
                 setUsuarios(data);
             } else {
                 setUsuarios([]);
             }
-        })
-        .catch(err => {
+        } catch (err) {
             console.error("Erro ao carregar usuários:", err);
             // Em caso de erro, zera a lista para não travar
             setUsuarios([]);
-        });
+        }
     };
 
     useEffect(() => {
@@ -89,69 +73,54 @@ export const UsuariosPanel = () => {
     };
 
     // 4. Salvar (Lógica Mista: Sign-Up vs Update)
-    const handleSalvarUsuario = (dados: Omit<IUsuario, 'id'> & { id?: number, password?: string }) => {
-        const headers = getAuthHeaders();
+    const handleSalvarUsuario = async (dados: Omit<IUsuario, 'id'> & { id?: number, password?: string }) => {
+        try {
+            if (dados.id) {
+                // --- EDIÇÃO (PUT /users/:id) ---
+                const payload = {
+                    name: dados.nome, // Backend geralmente espera 'name'
+                    email: dados.email,
+                    role: dados.perfil, // Backend pode esperar 'role'
+                    // Se tiver senha nova, envia. Se não, ignora.
+                    ...(dados.password && { password: dados.password })
+                };
 
-        if (dados.id) {
-            // --- EDIÇÃO (PUT /users/:id) ---
-            const payload = {
-                name: dados.nome, // Backend geralmente espera 'name'
-                email: dados.email,
-                role: dados.perfil, // Backend pode esperar 'role'
-                // Se tiver senha nova, envia. Se não, ignora.
-                ...(dados.password && { password: dados.password })
-            };
+                await usersService.update(dados.id, payload);
+                carregarUsuarios();
+                handleFecharModal();
 
-            fetch(`http://localhost:3000/users/${dados.id}`, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify(payload)
-            }).then(res => {
-                if (res.ok) {
-                    carregarUsuarios();
-                    handleFecharModal();
-                } else alert("Erro ao editar usuário.");
-            });
+            } else {
+                // --- CRIAÇÃO (POST /api/auth/sign-up) ---
+                // Usamos a rota de Auth para criar contas novas com senha
+                const payload = {
+                    name: dados.nome,
+                    email: dados.email,
+                    password: dados.password,
+                    passwordConfirmation: dados.password, // Better-Auth exige confirmação
+                    role: dados.perfil
+                };
 
-        } else {
-            // --- CRIAÇÃO (POST /api/auth/sign-up) ---
-            // Usamos a rota de Auth para criar contas novas com senha
-            const payload = {
-                name: dados.nome,
-                email: dados.email,
-                password: dados.password,
-                passwordConfirmation: dados.password, // Better-Auth exige confirmação
-                role: dados.perfil
-            };
-
-            fetch('http://localhost:3000/api/auth/sign-up', {
-                method: 'POST',
-                headers, // Envia token se necessário (se o middleware pedir)
-                body: JSON.stringify(payload)
-            }).then(async res => {
-                if (res.ok) {
-                    alert("Usuário criado com sucesso!");
-                    carregarUsuarios();
-                    handleFecharModal();
-                } else {
-                    const erro = await res.json();
-                    alert("Erro ao criar: " + JSON.stringify(erro));
-                }
-            });
+                await authService.signUp(payload);
+                alert("Usuário criado com sucesso!");
+                carregarUsuarios();
+                handleFecharModal();
+            }
+        } catch (error) {
+             console.error("Erro ao salvar usuário:", error);
+             alert("Erro ao salvar usuário.");
         }
     };
 
     // 5. Apagar (DELETE)
-    const handleApagar = (id: number) => {
+    const handleApagar = async (id: number) => {
         if (window.confirm('Tem a certeza que deseja excluir este usuário?')) {
-            fetch(`http://localhost:3000/users/${id}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders()
-            }).then(res => {
-                if (res.ok) {
-                    setUsuarios(atuais => atuais.filter(u => u.id !== id));
-                } else alert("Erro ao excluir usuário.");
-            });
+            try {
+                await usersService.delete(id);
+                setUsuarios(atuais => atuais.filter(u => u.id !== id));
+            } catch (err) {
+                console.error("Erro ao excluir usuário:", err);
+                alert("Erro ao excluir usuário.");
+            }
         }
     };
 

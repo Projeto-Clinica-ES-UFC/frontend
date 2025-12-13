@@ -1,13 +1,19 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { authClient } from '../lib/auth-client';
 
 // Interface do Usuário
+// Adapting to Better Auth user schema + existing fields
 interface IUser {
-  id: number;
+  id: string; // Changed from number to string to match Better Auth
   name: string;
   email: string;
   photoURL?: string;
   perfil?: string; 
+  image?: string;
+  emailVerified?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 interface IAuthContext {
@@ -15,7 +21,7 @@ interface IAuthContext {
   user: IUser | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateUser: (newUserData: Partial<IUser>) => void;
 }
 
@@ -26,96 +32,63 @@ interface AuthProviderProps {
 const AuthContext = createContext<IAuthContext>({} as IAuthContext);
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { data: session, isPending } = authClient.useSession();
   const [user, setUser] = useState<IUser | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  // Ao iniciar, verifica se tem usuário e token salvos
+  // Sync state with session
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('token');
-
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
+    if (session?.user) {
+      const u = session.user;
+      setUser({
+        ...u,
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        // Map better-auth 'image' to 'photoURL' for compatibility
+        photoURL: u.image || undefined,
+        // Perfil might be missing in default session unless extended. 
+        // Preserving property for type compatibility.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        perfil: (u as any).perfil || undefined 
+      } as IUser);
+    } else {
+      setUser(null);
     }
-    setLoading(false);
-  }, []);
+  }, [session]);
 
   // --- FUNÇÃO DE LOGIN ---
   const login = async (email: string, pass: string) => {
-    
-    // --- 🚨 BACKDOOR DE EMERGÊNCIA (APAGUE ISSO QUANDO O SISTEMA ESTIVER RODANDO) ---
-    // Isso permite você entrar mesmo se o backend estiver vazio ou com erro.
-    if (email === 'admin@clinica.com' && pass === 'admin') {
-        const fakeAdmin = {
-            id: 999,
-            name: 'Admin Temporário',
-            email: 'admin@clinica.com',
-            perfil: 'Administrador'
-        };
-        localStorage.setItem('token', 'token-de-emergencia-bypass');
-        localStorage.setItem('user', JSON.stringify(fakeAdmin));
-        setUser(fakeAdmin);
-        setIsAuthenticated(true);
-        alert("⚠️ ATENÇÃO: Você entrou com Login de Emergência (Offline). Algumas funções que dependem do banco podem não funcionar.");
-        return; // Para aqui e não chama o backend
-    }
-    // -------------------------------------------------------------------------------
+    const { error } = await authClient.signIn.email({
+      email,
+      password: pass,
+    });
 
-    try {
-      const response = await fetch('http://localhost:3000/api/auth/sign-in', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email,
-          password: pass 
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Erro ao fazer login');
-      }
-
-      // Tenta achar o token e o usuário na resposta
-      const token = data.token || data.accessToken || (data.session ? data.session.token : null);
-      const userData = data.user || (data.session ? data.session.user : null);
-
-      if (token && userData) {
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
-        setIsAuthenticated(true);
-      } else {
-        throw new Error("Login realizado, mas token não encontrado na resposta.");
-      }
-
-    } catch (error) {
+    if (error) {
       console.error("Erro no login:", error);
-      throw error; 
+      throw new Error(error.message || "Falha ao realizar login");
     }
+    // Session state is updated automatically by useSession hook
   };
 
-  const logout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    setIsAuthenticated(false);
-    setUser(null);
+  const logout = async () => {
+    await authClient.signOut();
+    // Session state is updated automatically by useSession hook
   };
 
   const updateUser = (newUserData: Partial<IUser>) => {
+    // Note: This only updates local state. 
+    // To persist changes, you should likely call an API endpoint.
     setUser(currentUser => {
-      const updatedUser = { ...currentUser!, ...newUserData };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      return updatedUser;
+      if (!currentUser) return null;
+      return { ...currentUser, ...newUserData };
     });
   };
 
+  const isAuthenticated = !!user;
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, loading, login, logout, updateUser }}>
-      {!loading && children}
+    <AuthContext.Provider value={{ isAuthenticated, user, loading: isPending, login, logout, updateUser }}>
+      {!isPending && children}
     </AuthContext.Provider>
   );
 };

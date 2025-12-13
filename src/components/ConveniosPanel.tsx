@@ -12,6 +12,8 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 
+import { agreementsService } from '../services/rest-client';
+
 // Ícones
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -34,39 +36,18 @@ export const ConveniosPanel = () => {
     const [convenioParaEditar, setConvenioParaEditar] = useState<IConvenio | null>(null);
 
     // Função BLINDADA para buscar os dados
-    const carregarConvenios = () => {
-        // Tenta pegar o token salvo (pode ser 'token', 'authToken' ou 'user')
-        // Ajuste 'token' se o seu sistema usar outro nome
-        const token = localStorage.getItem('token'); 
-
-        fetch('http://localhost:3000/agreements', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                // Aqui vai o crachá!
-                'Authorization': `Bearer ${token}` 
-            }
-        })
-            .then(res => {
-                if (res.status === 401) {
-                    throw new Error('Não autorizado. Faça login novamente.');
-                }
-                if (!res.ok) {
-                    throw new Error('O Backend retornou erro: ' + res.status);
-                }
-                return res.json();
-            })
-            .then(data => {
-                if (Array.isArray(data)) {
-                    setConvenios(data);
-                } else {
-                    setConvenios([]);
-                }
-            })
-            .catch(err => {
-                console.error("Erro ao carregar:", err);
+    const carregarConvenios = async () => {
+        try {
+            const data = await agreementsService.getAll();
+            if (Array.isArray(data)) {
+                setConvenios(data);
+            } else {
                 setConvenios([]);
-            });
+            }
+        } catch (err) {
+            console.error("Erro ao carregar:", err);
+            setConvenios([]);
+        }
     };
 
     // Busca os dados assim que a tela abre
@@ -89,73 +70,38 @@ export const ConveniosPanel = () => {
     };
 
     // Função de Salvar (Criação ou Edição)
-    const handleSalvarConvenio = (dados: Omit<IConvenio, 'id'> & { id?: number }) => {
-        const token = localStorage.getItem('token'); // Pega o token
+    const handleSalvarConvenio = async (dados: Omit<IConvenio, 'id'> & { id?: number }) => {
         const payload = {
             nome: dados.nome,
             desconto: Number(dados.desconto)
         };
 
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}` // Crachá
-        };
-
-        if (dados.id) {
-            // --- EDIÇÃO (PUT) ---
-            fetch(`http://localhost:3000/agreements/${dados.id}`, {
-                method: 'PUT',
-                headers: headers, // Usa os headers com token
-                body: JSON.stringify(payload)
-            })
-            .then(res => {
-                if (res.ok) {
-                    carregarConvenios(); 
-                    handleFecharModal();
-                } else {
-                    alert("Erro ao atualizar (Verifique se está logado).");
-                }
-            })
-            .catch(err => console.error("Erro na edição:", err));
-
-        } else {
-            // --- CRIAÇÃO (POST) ---
-            fetch('http://localhost:3000/agreements', {
-                method: 'POST',
-                headers: headers, // Usa os headers com token
-                body: JSON.stringify(payload)
-            })
-            .then(res => {
-                if (res.ok) {
-                    carregarConvenios();
-                    handleFecharModal();
-                } else {
-                    alert("Erro ao criar (Verifique se está logado).");
-                }
-            })
-            .catch(err => console.error("Erro na criação:", err));
+        try {
+            if (dados.id) {
+                // --- EDIÇÃO (PUT) ---
+                await agreementsService.update(dados.id, payload);
+            } else {
+                // --- CRIAÇÃO (POST) ---
+                await agreementsService.create(payload);
+            }
+            carregarConvenios();
+            handleFecharModal();
+        } catch (err) {
+            console.error("Erro ao salvar:", err);
+            alert("Erro ao salvar (Verifique se está logado).");
         }
     };
 
     // Função de Apagar (DELETE)
-    const handleApagar = (id: number) => {
+    const handleApagar = async (id: number) => {
         if (window.confirm('Tem a certeza que deseja excluir este convênio?')) {
-            const token = localStorage.getItem('token'); // Pega o token
-            
-            fetch(`http://localhost:3000/agreements/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}` // Crachá
-                }
-            })
-            .then(res => {
-                if (res.ok) {
-                    setConvenios(atuais => atuais.filter(c => c.id !== id));
-                } else {
-                    alert("Erro ao excluir. Verifique permissões.");
-                }
-            })
-            .catch(err => console.error("Erro de conexão:", err));
+            try {
+                await agreementsService.delete(id);
+                setConvenios(atuais => atuais.filter(c => c.id !== id));
+            } catch (err) {
+                console.error("Erro de conexão:", err);
+                alert("Erro ao excluir. Verifique permissões.");
+            }
         }
     };
 

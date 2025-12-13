@@ -12,6 +12,8 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 
+import { professionalsService } from '../services/rest-client';
+
 // Ícones
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -34,38 +36,20 @@ export const ProfissionaisPanel = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [profissionalParaEditar, setProfissionalParaEditar] = useState<IProfissional | null>(null);
 
-    // 2. Helper de Autenticação
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-    };
-
     // 3. Buscar Profissionais (GET)
-    const carregarProfissionais = () => {
-        fetch('http://localhost:3000/professionals', {
-            method: 'GET',
-            headers: getAuthHeaders()
-        })
-        .then(res => {
-            if (res.status === 401) throw new Error('Não autorizado');
-            if (!res.ok) throw new Error('Erro na API');
-            return res.json();
-        })
-        .then(data => {
+    const carregarProfissionais = async () => {
+        try {
+            const data = await professionalsService.getAll();
             // Blindagem contra tela branca
             if (Array.isArray(data)) {
                 setProfissionais(data);
             } else {
                 setProfissionais([]);
             }
-        })
-        .catch(err => {
+        } catch (err) {
             console.error("Erro ao carregar profissionais:", err);
             setProfissionais([]);
-        });
+        }
     };
 
     // Carrega ao abrir
@@ -88,52 +72,39 @@ export const ProfissionaisPanel = () => {
     };
 
     // 4. Salvar (POST / PUT)
-    const handleSalvarProfissional = (dados: Omit<IProfissional, 'id'> & { id?: number }) => {
+    const handleSalvarProfissional = async (dados: Omit<IProfissional, 'id'> & { id?: number }) => {
         const payload = {
             nome: dados.nome,
             email: dados.email,
             especialidade: dados.especialidade
         };
-        const headers = getAuthHeaders();
 
-        if (dados.id) {
-            // Edição
-            fetch(`http://localhost:3000/professionals/${dados.id}`, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify(payload)
-            }).then(res => {
-                if (res.ok) {
-                    carregarProfissionais();
-                    handleFecharModal();
-                } else alert("Erro ao editar profissional.");
-            });
-        } else {
-            // Criação
-            fetch('http://localhost:3000/professionals', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(payload)
-            }).then(res => {
-                if (res.ok) {
-                    carregarProfissionais();
-                    handleFecharModal();
-                } else alert("Erro ao criar profissional.");
-            });
+        try {
+            if (dados.id) {
+                // Edição
+                await professionalsService.update(dados.id, payload);
+            } else {
+                // Criação
+                await professionalsService.create(payload);
+            }
+            carregarProfissionais();
+            handleFecharModal();
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao salvar profissional.");
         }
     };
 
     // 5. Apagar (DELETE)
-    const handleApagar = (id: number) => {
+    const handleApagar = async (id: number) => {
         if (window.confirm('Tem a certeza que deseja excluir este profissional?')) {
-            fetch(`http://localhost:3000/professionals/${id}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders()
-            }).then(res => {
-                if (res.ok) {
-                    setProfissionais(atuais => atuais.filter(p => p.id !== id));
-                } else alert("Erro ao excluir profissional.");
-            });
+            try {
+                await professionalsService.delete(id);
+                setProfissionais(atuais => atuais.filter(p => p.id !== id));
+            } catch (error) {
+                console.error(error);
+                alert("Erro ao excluir profissional.");
+            }
         }
     };
 

@@ -18,6 +18,8 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 import ListItemText from '@mui/material/ListItemText';
 
+import { tasksService, usersService } from '../services/rest-client';
+
 // Ícones
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -57,33 +59,17 @@ export const TarefasPage = () => {
     const [filtroStatus, setFiltroStatus] = useState<'Pendentes' | 'Concluidas' | 'Todas'>('Pendentes');
     const [filtroAtribuido, setFiltroAtribuido] = useState<number | 'Todos'>('Todos');
 
-    // Helper de Auth
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-    };
-
     // 1. Carregar Dados (Tarefas + Usuários)
     useEffect(() => {
         const carregarDados = async () => {
             try {
-                const headers = getAuthHeaders();
-                const [resTarefas, resUsuarios] = await Promise.all([
-                    fetch('http://localhost:3000/tasks', { headers }),
-                    fetch('http://localhost:3000/users', { headers })
+                const [dataTarefas, dataUsuarios] = await Promise.all([
+                    tasksService.getAll(),
+                    usersService.getAll()
                 ]);
 
-                if (resTarefas.ok) {
-                    const data = await resTarefas.json();
-                    if (Array.isArray(data)) setTarefas(data);
-                }
-                if (resUsuarios.ok) {
-                    const data = await resUsuarios.json();
-                    if (Array.isArray(data)) setUsuarios(data);
-                }
+                if (Array.isArray(dataTarefas)) setTarefas(dataTarefas);
+                if (Array.isArray(dataUsuarios)) setUsuarios(dataUsuarios);
 
             } catch (error) {
                 console.error("Erro ao carregar tarefas:", error);
@@ -100,8 +86,7 @@ export const TarefasPage = () => {
     const handleFecharModal = () => setIsModalOpen(false);
 
     // 2. Salvar (POST / PUT)
-    const handleSalvarTarefa = (dados: Omit<ITarefa, 'id' | 'concluida'> & { id?: number }) => {
-        const headers = getAuthHeaders();
+    const handleSalvarTarefa = async (dados: Omit<ITarefa, 'id' | 'concluida'> & { id?: number }) => {
         const payload = {
             titulo: dados.titulo,
             descricao: dados.descricao,
@@ -111,67 +96,52 @@ export const TarefasPage = () => {
             concluida: tarefaParaEditar?.concluida || false
         };
 
-        if (dados.id) {
-            // Edição
-            fetch(`http://localhost:3000/tasks/${dados.id}`, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify(payload)
-            }).then(res => {
-                if(res.ok) {
-                    // Atualiza localmente ou recarrega
-                    setTarefas(prev => prev.map(t => t.id === dados.id ? { ...t, ...dados } as ITarefa : t));
-                    addNotification(`Tarefa atualizada: "${dados.titulo}"`);
-                }
-            });
-        } else {
-            // Criação
-            fetch('http://localhost:3000/tasks', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(payload)
-            }).then(async res => {
-                if(res.ok) {
-                    const novaTarefa = await res.json();
-                    setTarefas(prev => [novaTarefa, ...prev]);
-                    addNotification(`Nova tarefa criada: "${dados.titulo}"`);
-                }
-            });
+        try {
+            if (dados.id) {
+                // Edição
+                await tasksService.update(dados.id, payload);
+                // Atualiza localmente ou recarrega
+                setTarefas(prev => prev.map(t => t.id === dados.id ? { ...t, ...dados } as ITarefa : t));
+                addNotification(`Tarefa atualizada: "${dados.titulo}"`);
+            } else {
+                // Criação
+                const novaTarefa = await tasksService.create(payload);
+                setTarefas(prev => [novaTarefa, ...prev]);
+                addNotification(`Nova tarefa criada: "${dados.titulo}"`);
+            }
+        } catch (error) {
+            console.error(error);
         }
         handleFecharModal();
     };
 
     // 3. Apagar (DELETE)
-    const handleApagar = (id: number) => {
+    const handleApagar = async (id: number) => {
         if (window.confirm('Excluir tarefa?')) {
-            fetch(`http://localhost:3000/tasks/${id}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders()
-            }).then(res => {
-                if(res.ok) {
-                    setTarefas(prev => prev.filter(t => t.id !== id));
-                }
-            });
+            try {
+                await tasksService.delete(id);
+                setTarefas(prev => prev.filter(t => t.id !== id));
+            } catch (error) {
+                console.error(error);
+            }
         }
     };
 
     // 4. Mudar Status (PATCH)
-    const handleToggleConcluida = (id: number) => {
+    const handleToggleConcluida = async (id: number) => {
         const tarefa = tarefas.find(t => t.id === id);
         if(!tarefa) return;
 
         // Atualização Otimista
         setTarefas(prev => prev.map(t => t.id === id ? { ...t, concluida: !t.concluida } : t));
 
-        fetch(`http://localhost:3000/tasks/${id}`, {
-            method: 'PATCH',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ concluida: !tarefa.concluida })
-        }).catch(err => {
+        try {
+            await tasksService.patch(id, { concluida: !tarefa.concluida });
+        } catch (err) {
             console.error(err);
             // Reverte em caso de erro (opcional)
             setTarefas(prev => prev.map(t => t.id === id ? { ...t, concluida: tarefa.concluida } : t));
-        });
+        }
     };
 
     // Filtros e Ordenação

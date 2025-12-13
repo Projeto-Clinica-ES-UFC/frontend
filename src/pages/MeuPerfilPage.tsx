@@ -12,6 +12,8 @@ import Tooltip from '@mui/material/Tooltip';
 import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
 
+import { usersService } from '../services/rest-client';
+
 // Ícones
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
@@ -39,15 +41,6 @@ export const MeuPerfilPage = () => {
     // Feedback
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [loading, setLoading] = useState(false);
-
-    // Helper de Auth
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-    };
 
     const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
@@ -89,15 +82,7 @@ export const MeuPerfilPage = () => {
             // 2. Envia para o Backend (PUT /users/:id)
             if (!user?.id) throw new Error("ID do usuário não encontrado.");
 
-            const response = await fetch(`http://localhost:3000/users/${user.id}`, {
-                method: 'PUT',
-                headers: getAuthHeaders(),
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                throw new Error("Erro ao atualizar perfil.");
-            }
+            await usersService.update(user.id, payload);
 
             // 3. Atualiza o Contexto Global (Frontend)
             updateUser({ 

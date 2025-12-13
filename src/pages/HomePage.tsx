@@ -13,6 +13,8 @@ import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { appointmentsService, patientsService, externalService } from '../services/rest-client';
+
 // Ícones
 import SearchIcon from '@mui/icons-material/Search';
 import PersonAddIcon from '@mui/icons-material/PersonAddAlt1';
@@ -55,8 +57,7 @@ export const HomePage = () => {
     useEffect(() => {
         const fetchRandomVerse = async () => {
             try {
-                const res = await fetch(`https://bible-api.com/data/almeida/random`);
-                const data = await res.json();
+                const data = await externalService.getRandomBibleVerse();
                 if (data && data.text && data.reference) {
                     setVerse({ text: data.text.trim(), reference: data.reference });
                 } else {
@@ -74,25 +75,13 @@ export const HomePage = () => {
     useEffect(() => {
         const carregarDashboard = async () => {
             try {
-                const token = localStorage.getItem('token');
-                const headers = { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` 
-                };
-
-                const [resAg, resPac] = await Promise.all([
-                    fetch('http://localhost:3000/appointments', { headers }),
-                    fetch('http://localhost:3000/patients', { headers })
+                const [dataAg, dataPac] = await Promise.all([
+                    appointmentsService.getAll(),
+                    patientsService.getAll()
                 ]);
 
-                if (resAg.ok) {
-                    const data = await resAg.json();
-                    if(Array.isArray(data)) setAgendamentos(data);
-                }
-                if (resPac.ok) {
-                    const data = await resPac.json();
-                    if(Array.isArray(data)) setPacientes(data);
-                }
+                if(Array.isArray(dataAg)) setAgendamentos(dataAg);
+                if(Array.isArray(dataPac)) setPacientes(dataPac);
 
             } catch (error) {
                 console.error("Erro ao carregar dashboard:", error);
