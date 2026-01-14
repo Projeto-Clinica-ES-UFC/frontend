@@ -7,6 +7,11 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Box from '@mui/material/Box';
 
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { ptBR } from 'date-fns/locale';
+
 // Interface IPaciente atualizada para incluir status
 interface IPaciente {
     id: number;
@@ -15,7 +20,7 @@ interface IPaciente {
     dataNascimento: string;
     nomeResponsavel: string;
     telefoneResponsavel: string;
-    status: 'Agendado' | 'Em Atendimento' | 'Finalizado' | 'Cancelado/Inativo'; // Adicionado status
+    status: 'Agendado' | 'Em Atendimento' | 'Finalizado' | 'Cancelado';
 }
 
 // Interface das Props atualizada para incluir onDelete
@@ -23,20 +28,20 @@ interface PacienteFormModalProps {
     open: boolean;
     onClose: () => void;
     // Ajustado onSave para não esperar status (será definido no Panel)
-    onSave: (paciente: Omit<IPaciente, 'id' | 'status'> & { id?: number }) => void; 
+    onSave: (paciente: Omit<IPaciente, 'id' | 'status'> & { id?: number }) => void;
     pacienteParaEditar?: IPaciente | null;
-    onDelete?: (id: number) => void; // <-- Propriedade onDelete adicionada
+    onDelete?: (id: number) => void;
 }
 
 export const PacienteFormModal = ({ open, onClose, onSave, pacienteParaEditar, onDelete }: PacienteFormModalProps) => {
     const [nome, setNome] = useState('');
     const [cpf, setCpf] = useState('');
-    const [dataNascimento, setDataNascimento] = useState('');
+    const [dataNascimento, setDataNascimento] = useState<Date | null>(null);
     const [nomeResponsavel, setNomeResponsavel] = useState('');
     const [telefoneResponsavel, setTelefoneResponsavel] = useState('');
 
     const formatarCPF = (valor: string) => {
-        const apenasNumeros = valor.replace(/\D/g, ''); 
+        const apenasNumeros = valor.replace(/\D/g, '');
         return apenasNumeros
             .slice(0, 11)
             .replace(/(\d{3})(\d)/, '$1.$2')
@@ -48,29 +53,37 @@ export const PacienteFormModal = ({ open, onClose, onSave, pacienteParaEditar, o
         if (pacienteParaEditar) {
             setNome(pacienteParaEditar.nome);
             setCpf(pacienteParaEditar.cpf);
-            setDataNascimento(pacienteParaEditar.dataNascimento);
+            // Parse local date (midnight)
+            setDataNascimento(new Date(pacienteParaEditar.dataNascimento + 'T00:00:00'));
             setNomeResponsavel(pacienteParaEditar.nomeResponsavel);
             setTelefoneResponsavel(pacienteParaEditar.telefoneResponsavel);
         } else {
             setNome('');
             setCpf('');
-            setDataNascimento('');
+            setDataNascimento(null);
             setNomeResponsavel('');
             setTelefoneResponsavel('');
         }
     }, [pacienteParaEditar, open]);
 
     const handleSave = () => {
+        if (!dataNascimento) {
+            alert("Data de Nascimento é obrigatória");
+            return;
+        }
+
+        // Format to YYYY-MM-DD
+        const dataStr = dataNascimento.toISOString().split('T')[0];
+
         const pacienteData = {
             id: pacienteParaEditar?.id,
             nome,
             cpf,
-            dataNascimento,
+            dataNascimento: dataStr,
             nomeResponsavel,
             telefoneResponsavel,
-            // Status não é enviado daqui, será definido no Panel
         };
-        onSave(pacienteData); 
+        onSave(pacienteData);
     };
 
     // Função para chamar o onDelete
@@ -109,45 +122,46 @@ export const PacienteFormModal = ({ open, onClose, onSave, pacienteParaEditar, o
                         onChange={(e) => setCpf(formatarCPF(e.target.value))}
                         inputProps={{ maxLength: 14 }}
                     />
+
+                    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+                        <DatePicker
+                            label="Data de Nascimento (Paciente)"
+                            value={dataNascimento}
+                            onChange={(newValue) => setDataNascimento(newValue)}
+                            format="dd/MM/yyyy"
+                            slotProps={{ textField: { fullWidth: true } }}
+                        />
+                    </LocalizationProvider>
+
                     <TextField
-                        id="dataNascimento"
-                        label="Data de Nascimento (Paciente)"
-                        type="date"
+                        id="nomeResponsavel"
+                        label="Nome do Responsável"
+                        type="text"
                         fullWidth
                         variant="outlined"
-                        value={dataNascimento}
-                        onChange={(e) => setDataNascimento(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
+                        value={nomeResponsavel}
+                        onChange={(e) => setNomeResponsavel(e.target.value)}
+                        required
                     />
-                     <TextField
-                         id="nomeResponsavel"
-                         label="Nome do Responsável"
-                         type="text"
-                         fullWidth
-                         variant="outlined"
-                         value={nomeResponsavel}
-                         onChange={(e) => setNomeResponsavel(e.target.value)}
-                         required 
-                     />
-                     <TextField
-                         id="telefoneResponsavel"
-                         label="Telefone do Responsável"
-                         type="tel"
-                         fullWidth
-                         variant="outlined"
-                         value={telefoneResponsavel}
-                         onChange={(e) => setTelefoneResponsavel(e.target.value)}
-                         placeholder="(XX) XXXXX-XXXX"
-                     />
+                    <TextField
+                        id="telefoneResponsavel"
+                        label="Telefone do Responsável"
+                        type="tel"
+                        fullWidth
+                        variant="outlined"
+                        value={telefoneResponsavel}
+                        onChange={(e) => setTelefoneResponsavel(e.target.value)}
+                        placeholder="(XX) XXXXX-XXXX"
+                    />
                 </Box>
             </DialogContent>
             <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-                 {/* Botão Excluir (aparece só na edição) */}
-                 {pacienteParaEditar && onDelete ? (
-                     <Button onClick={handleDelete} color="error" > 
-                         Excluir Paciente
-                     </Button>
-                 ) : <Box />} {/* Espaçador para manter alinhamento */}
+                {/* Botão Excluir (aparece só na edição) */}
+                {pacienteParaEditar && onDelete ? (
+                    <Button onClick={handleDelete} color="error" >
+                        Excluir Paciente
+                    </Button>
+                ) : <Box />} {/* Espaçador para manter alinhamento */}
 
                 <Box>
                     <Button onClick={onClose} sx={{ mr: 1 }}>Cancelar</Button>

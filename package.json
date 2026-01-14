@@ -24,6 +24,7 @@
     "@mui/icons-material": "^7.3.6",
     "@mui/lab": "^7.0.1-beta.20",
     "@mui/material": "^7.3.6",
+    "@mui/x-date-pickers": "^8.24.0",
     "@types/react-csv": "^1.1.10",
     "axios": "^1.13.2",
     "better-auth": "^1.4.6",
