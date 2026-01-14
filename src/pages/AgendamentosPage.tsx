@@ -85,10 +85,13 @@ export const AgendamentosPage = () => {
 
             if (Array.isArray(dataAgendamentos)) setAgendamentos(dataAgendamentos);
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const pacList = (dataPacientes as any).data || dataPacientes;
+
             // Map patients (name -> nome)
-            if (Array.isArray(dataPacientes)) {
+            if (Array.isArray(pacList)) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const mappedPacientes = dataPacientes.map((p: any) => ({
+                const mappedPacientes = pacList.map((p: any) => ({
                     id: p.id,
                     nome: p.name || p.nome
                 }));
@@ -145,7 +148,7 @@ export const AgendamentosPage = () => {
         ));
 
         try {
-            await appointmentsService.patch(agendamentoId, novasDatas);
+            await appointmentsService.update(agendamentoId, novasDatas);
         } catch (err) {
             console.error("Erro ao mover evento:", err);
             alert("Erro ao mover agendamento. Recarregando...");
@@ -195,7 +198,7 @@ export const AgendamentosPage = () => {
         if (!eventoSelecionadoPopover) return;
 
         try {
-            await appointmentsService.patch(eventoSelecionadoPopover.id, { status: novoStatus });
+            await appointmentsService.update(eventoSelecionadoPopover.id, { status: novoStatus });
             setAgendamentos(prev => prev.map(ag =>
                 ag.id === eventoSelecionadoPopover.id ? { ...ag, status: novoStatus } : ag
             ));

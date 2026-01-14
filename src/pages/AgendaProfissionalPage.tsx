@@ -81,10 +81,13 @@ export const AgendaProfissionalPage = () => {
 
             if (Array.isArray(dataAg)) setAgendamentos(dataAg);
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const pacList = (dataPac as any).data || dataPac;
+
             // Map patients (name -> nome)
-            if (Array.isArray(dataPac)) {
+            if (Array.isArray(pacList)) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const mappedPacientes = dataPac.map((p: any) => ({
+                const mappedPacientes = pacList.map((p: any) => ({
                     id: p.id,
                     nome: p.name || p.nome
                 }));
