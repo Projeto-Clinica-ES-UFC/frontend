@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatDateBR } from '../utils/dateUtils';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
@@ -31,7 +32,7 @@ import SearchIcon from '@mui/icons-material/Search'; // Novo
 
 // Importamos os modais e o novo painel Kanban
 import { PacienteFormModal } from './PacienteFormModal';
-import { PacientesKanban } from './PacientesKanban'; 
+import { PacientesKanban } from './PacientesKanban';
 
 // Interface
 interface IPaciente {
@@ -41,7 +42,7 @@ interface IPaciente {
     dataNascimento: string;
     nomeResponsavel: string;
     telefoneResponsavel: string;
-    status: 'Agendado' | 'Em Atendimento' | 'Finalizado' | 'Cancelado'; 
+    status: 'Agendado' | 'Em Atendimento' | 'Finalizado' | 'Cancelado';
 }
 
 export const PacientesPanel = () => {
@@ -50,10 +51,10 @@ export const PacientesPanel = () => {
     const [pacientes, setPacientes] = useState<IPaciente[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pacienteParaEditar, setPacienteParaEditar] = useState<IPaciente | null>(null);
-    const [viewMode, setViewMode] = useState<'lista' | 'kanban'>('lista'); 
-    
+    const [viewMode, setViewMode] = useState<'lista' | 'kanban'>('lista');
+
     // Filtros
-    const [filtroDataInicio, setFiltroDataInicio] = useState(''); 
+    const [filtroDataInicio, setFiltroDataInicio] = useState('');
     const [filtroDataFim, setFiltroDataFim] = useState('');
     const [busca, setBusca] = useState(''); // Novo filtro de busca textual
 
@@ -105,7 +106,7 @@ export const PacientesPanel = () => {
     };
 
     // 4. Salvar (POST / PUT)
-    const handleSalvarPaciente = async (pacienteData: Omit<IPaciente, 'id' | 'status'> & { id?: number }) => { 
+    const handleSalvarPaciente = async (pacienteData: Omit<IPaciente, 'id' | 'status'> & { id?: number }) => {
         try {
             if (pacienteData.id) {
                 // Edição
@@ -144,14 +145,14 @@ export const PacientesPanel = () => {
             setPacientes(atuais => atuais.filter(p => p.id !== idDoPaciente));
         } catch (error) {
             console.error(error);
-             alert("Erro ao excluir paciente.");
+            alert("Erro ao excluir paciente.");
         }
     };
 
     // 6. Mudar Status via Kanban (PATCH)
     const handlePacienteStatusChange = async (pacienteId: number, novoStatus: IPaciente['status']) => {
         // Atualização Otimista na tela
-        setPacientes(atuais => 
+        setPacientes(atuais =>
             atuais.map(p => p.id === pacienteId ? { ...p, status: novoStatus } : p)
         );
 
@@ -174,16 +175,16 @@ export const PacientesPanel = () => {
 
     // Lógica de Filtragem (Mantive a sua de data e adicionei a de Busca)
     const pacientesFiltrados = pacientes.filter(paciente => {
-        const dataPaciente = new Date(paciente.dataNascimento + 'T00:00:00'); 
-        
+        const dataPaciente = new Date(paciente.dataNascimento + 'T00:00:00');
+
         // Filtro Data
         const inicioOk = !filtroDataInicio || dataPaciente >= new Date(filtroDataInicio + 'T00:00:00');
         const fimOk = !filtroDataFim || dataPaciente <= new Date(filtroDataFim + 'T00:00:00');
-        
+
         // Filtro Busca (Nome ou CPF)
         const termo = busca.toLowerCase();
-        const buscaOk = !busca || 
-            paciente.nome.toLowerCase().includes(termo) || 
+        const buscaOk = !busca ||
+            paciente.nome.toLowerCase().includes(termo) ||
             paciente.cpf.includes(termo);
 
         return inicioOk && fimOk && buscaOk;
@@ -215,16 +216,16 @@ export const PacientesPanel = () => {
                 />
 
                 <Typography variant="body2" sx={{ ml: { sm: 1 } }}>Nasc:</Typography>
-                <TextField 
-                    size="small" type="date" value={filtroDataInicio} 
-                    onChange={(e) => setFiltroDataInicio(e.target.value)} 
+                <TextField
+                    size="small" type="date" value={filtroDataInicio}
+                    onChange={(e) => setFiltroDataInicio(e.target.value)}
                 />
-                <TextField 
-                    size="small" type="date" value={filtroDataFim} 
-                    onChange={(e) => setFiltroDataFim(e.target.value)} 
+                <TextField
+                    size="small" type="date" value={filtroDataFim}
+                    onChange={(e) => setFiltroDataFim(e.target.value)}
                 />
-                
-                <Button 
+
+                <Button
                     size="small" startIcon={<ClearIcon />}
                     onClick={() => { setFiltroDataInicio(''); setFiltroDataFim(''); setBusca(''); }}
                     sx={{ ml: 'auto' }}
@@ -243,9 +244,9 @@ export const PacientesPanel = () => {
 
             {/* Visualização em Lista */}
             {viewMode === 'lista' && (
-                <Paper elevation={3} sx={{ width: '100%', overflow: 'hidden' }}> 
+                <Paper elevation={3} sx={{ width: '100%', overflow: 'hidden' }}>
                     <TableContainer>
-                        <Table> 
+                        <Table>
                             <TableHead>
                                 <TableRow>
                                     <TableCell sx={{ fontWeight: 'bold' }}>Nome Completo</TableCell>
@@ -261,7 +262,7 @@ export const PacientesPanel = () => {
                                     <TableRow key={paciente.id} hover>
                                         <TableCell sx={{ py: 1.5 }}>{paciente.nome}</TableCell>
                                         <TableCell sx={{ py: 1.5 }}>{paciente.cpf}</TableCell>
-                                        <TableCell sx={{ py: 1.5 }}>{new Date(paciente.dataNascimento + 'T00:00:00').toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</TableCell>
+                                        <TableCell sx={{ py: 1.5 }}>{formatDateBR(paciente.dataNascimento)}</TableCell>
                                         <TableCell sx={{ py: 1.5 }}>{paciente.nomeResponsavel}</TableCell>
                                         <TableCell sx={{ py: 1.5 }}>{paciente.telefoneResponsavel}</TableCell>
                                         <TableCell align="right" sx={{ py: 1.5 }}>
@@ -298,9 +299,9 @@ export const PacientesPanel = () => {
 
             {/* Visualização em Kanban */}
             {viewMode === 'kanban' && (
-                <PacientesKanban 
+                <PacientesKanban
                     pacientes={pacientesFiltrados}
-                    onPacienteStatusChange={handlePacienteStatusChange} 
+                    onPacienteStatusChange={handlePacienteStatusChange}
                 />
             )}
 

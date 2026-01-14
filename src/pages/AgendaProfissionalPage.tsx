@@ -275,6 +275,7 @@ export const AgendaProfissionalPage = () => {
                     select={handleDateSelect}
                     eventClick={handleEventClick}
                     eventDrop={handleEventDrop}
+                    eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
                 />
             </Paper>
 

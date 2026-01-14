@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { formatDateBR } from '../utils/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -46,7 +47,7 @@ const VERSICULO_PADRAO: Verse = {
 export const HomePage = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    
+
     // Estados de Dados
     const [verse, setVerse] = useState<Verse>({ text: 'Carregando versículo...', reference: '' });
     const [agendamentos, setAgendamentos] = useState<IEvento[]>([]);
@@ -75,13 +76,16 @@ export const HomePage = () => {
     useEffect(() => {
         const carregarDashboard = async () => {
             try {
-                const [dataAg, dataPac] = await Promise.all([
+                const [dataAg, dataPacResponse] = await Promise.all([
                     appointmentsService.getAll(),
                     patientsService.getAll()
                 ]);
 
-                if(Array.isArray(dataAg)) setAgendamentos(dataAg);
-                if(Array.isArray(dataPac)) setPacientes(dataPac);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const dataPac = (dataPacResponse as any).data || dataPacResponse;
+
+                if (Array.isArray(dataAg)) setAgendamentos(dataAg);
+                if (Array.isArray(dataPac)) setPacientes(dataPac);
 
             } catch (error) {
                 console.error("Erro ao carregar dashboard:", error);
@@ -118,7 +122,7 @@ export const HomePage = () => {
                 return {
                     id: ag.id,
                     hora: new Date(ag.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                    data: new Date(ag.start).toLocaleDateString('pt-BR'),
+                    data: formatDateBR(ag.start),
                     pacienteNome: paciente?.nome || 'Paciente Desconhecido',
                     status: ag.status
                 };
@@ -133,19 +137,19 @@ export const HomePage = () => {
                 <Typography variant="h4" component="h1" sx={{ mb: { xs: 2, md: 0 } }}>
                     Bem-vindo, {user?.name || 'Usuário'}!
                 </Typography>
-                
+
                 {/* Campo de Busca Visual (Futuramente pode redirecionar para Configurações > Pacientes) */}
                 <TextField
                     size="small"
                     placeholder="Pesquisar..."
                     variant="outlined"
-                    InputProps={{ startAdornment: ( <InputAdornment position="start"> <SearchIcon /> </InputAdornment> ) }}
+                    InputProps={{ startAdornment: (<InputAdornment position="start"> <SearchIcon /> </InputAdornment>) }}
                     sx={{ width: { xs: '100%', md: '300px' } }}
                 />
             </Box>
 
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                
+
                 {/* Versículo */}
                 <Box sx={{ flexBasis: '100%' }}>
                     <Paper elevation={2} sx={{ p: 2, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
@@ -157,21 +161,21 @@ export const HomePage = () => {
                         </Typography>
                     </Paper>
                 </Box>
-                
+
                 {/* Ações Rápidas */}
                 <Box sx={{ flexBasis: { xs: '100%', sm: 'calc(50% - 12px)' }, flexGrow: 1 }}>
                     <Paper elevation={2} sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                         <Typography variant="h6" gutterBottom> Ações Rápidas </Typography>
                         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
-                            <Button 
-                                variant="contained" 
+                            <Button
+                                variant="contained"
                                 startIcon={<EventIcon />}
                                 onClick={() => navigate('/agendamentos')}
                             >
                                 Novo Agendamento
                             </Button>
-                            <Button 
-                                variant="outlined" 
+                            <Button
+                                variant="outlined"
                                 startIcon={<PersonAddIcon />}
                                 onClick={() => navigate('/configuracoes')} // Pacientes fica em Configurações
                             >
@@ -222,9 +226,9 @@ export const HomePage = () => {
                                     dashboardStats.proximos.map(prox => (
                                         <div key={prox.id}>
                                             <ListItem>
-                                                <ListItemText 
-                                                    primary={`${prox.data} às ${prox.hora} - ${prox.pacienteNome}`} 
-                                                    secondary={`Status: ${prox.status}`} 
+                                                <ListItemText
+                                                    primary={`${prox.data} às ${prox.hora} - ${prox.pacienteNome}`}
+                                                    secondary={`Status: ${prox.status}`}
                                                 />
                                             </ListItem>
                                             <Divider component="li" />
@@ -232,9 +236,9 @@ export const HomePage = () => {
                                     ))
                                 ) : (
                                     <ListItem>
-                                        <ListItemText 
-                                            primary="Nenhum agendamento futuro encontrado." 
-                                            sx={{ color: 'text.secondary', fontStyle: 'italic' }} 
+                                        <ListItemText
+                                            primary="Nenhum agendamento futuro encontrado."
+                                            sx={{ color: 'text.secondary', fontStyle: 'italic' }}
                                         />
                                     </ListItem>
                                 )}
