@@ -45,7 +45,15 @@ export const ProfissionaisPanel = () => {
 
             // Blindagem contra tela branca
             if (Array.isArray(lista)) {
-                setProfissionais(lista);
+                // Map backend fields (name, specialty) to frontend interface (nome, especialidade)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const mappedProfissionais: IProfissional[] = lista.map((p: any) => ({
+                    id: p.id,
+                    nome: p.name || p.nome,
+                    email: p.email,
+                    especialidade: p.specialty || p.especialidade || '',
+                }));
+                setProfissionais(mappedProfissionais);
             } else {
                 setProfissionais([]);
             }
@@ -101,14 +109,12 @@ export const ProfissionaisPanel = () => {
 
     // 5. Apagar (DELETE)
     const handleApagar = async (id: number) => {
-        if (window.confirm('Tem a certeza que deseja excluir este profissional?')) {
-            try {
-                await professionalsService.delete(id);
-                setProfissionais(atuais => atuais.filter(p => p.id !== id));
-            } catch (error) {
-                console.error(error);
-                alert("Erro ao excluir profissional.");
-            }
+        try {
+            await professionalsService.delete(id);
+            setProfissionais(atuais => atuais.filter(p => p.id !== id));
+        } catch (error) {
+            console.error('Erro ao excluir profissional:', error);
+            alert("Erro ao excluir profissional.");
         }
     };
 

@@ -6,7 +6,7 @@ import { ProntuarioPage } from './pages/ProntuarioPage';
 import { AgendamentosPage } from './pages/AgendamentosPage';
 import { AgendaProfissionalPage } from './pages/AgendaProfissionalPage';
 // Financeiro e Relatórios removidos
-import { TarefasPage } from './pages/TarefasPage';
+
 import { MeuPerfilPage } from './pages/MeuPerfilPage';
 import { AnamnesePage } from './pages/AnamnesePage';
 import { ConfiguracoesPage } from './pages/ConfiguracoesPage';
@@ -18,7 +18,7 @@ const ProtectedRoute = () => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return <div>Carregando sessão...</div>; 
+    return <div>Carregando sessão...</div>;
   }
 
   return isAuthenticated ? <Layout /> : <Navigate to="/login" replace />;
@@ -29,12 +29,12 @@ function App() {
     <Routes>
       {/* Rota Pública */}
       <Route path="/login" element={<Login />} />
-      
+
       {/* Rotas Protegidas */}
       <Route element={<ProtectedRoute />}>
-        
+
         <Route index path="/" element={<HomePage />} />
-        
+
         <Route path="/pacientes" element={<PacientesPage />} />
 
         <Route path="/pacientes/:pacienteId/prontuario" element={<ProntuarioPage />} />
@@ -47,7 +47,7 @@ function App() {
 
         {/* Financeiro removido */}
 
-        <Route path="/tarefas" element={<TarefasPage />} />
+
 
         {/* Relatórios removido */}
 

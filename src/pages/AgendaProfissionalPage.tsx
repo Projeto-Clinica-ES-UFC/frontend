@@ -19,7 +19,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import ptBrLocale from '@fullcalendar/core/locales/pt-br';
 import { type EventClickArg, type DateSelectArg, type EventDropArg } from '@fullcalendar/core';
 
-import { appointmentsService, patientsService, professionalsService, specialtiesService } from '../services/rest-client';
+import { appointmentsService, patientsService, professionalsService } from '../services/rest-client';
 
 // Ícones
 import EditIcon from '@mui/icons-material/Edit';
@@ -35,7 +35,6 @@ import { useAuth } from '../contexts/AuthContext';
 type StatusAgendamento = 'Pendente' | 'Confirmado' | 'Realizado' | 'Cancelado';
 
 interface IPaciente { id: number; nome: string; }
-interface IEspecialidade { id: number; nome: string; }
 interface IProfissional { id: number; nome: string; especialidade: string; }
 
 interface IEvento {
@@ -60,12 +59,10 @@ export const AgendaProfissionalPage = () => {
     const [agendamentos, setAgendamentos] = useState<IEvento[]>([]);
     const [listaPacientes, setListaPacientes] = useState<IPaciente[]>([]);
     const [listaProfissionais, setListaProfissionais] = useState<IProfissional[]>([]);
-    const [listaEspecialidades, setListaEspecialidades] = useState<IEspecialidade[]>([]);
 
     // Estados de Filtro
-    const [especialidadeFiltro, setEspecialidadeFiltro] = useState<IEspecialidade | null>(null);
     const [profissionalFiltro, setProfissionalFiltro] = useState<IProfissional | null>(null);
-    
+
     // Estados de UI
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [eventoParaEditar, setEventoParaEditar] = useState<IEvento | null>(null);
@@ -76,21 +73,18 @@ export const AgendaProfissionalPage = () => {
     // Carregamento de Dados
     const carregarTudo = async () => {
         try {
-            const [dataAg, dataPac, dataProf, dataEsp] = await Promise.all([
+            const [dataAg, dataPac, dataProf] = await Promise.all([
                 appointmentsService.getAll(),
                 patientsService.getAll(),
-                professionalsService.getAll(),
-                specialtiesService.getAll()
+                professionalsService.getAll()
             ]);
 
             if (Array.isArray(dataAg)) setAgendamentos(dataAg);
             if (Array.isArray(dataPac)) setListaPacientes(dataPac);
-            
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const profList = (dataProf as any).data || dataProf;
             if (Array.isArray(profList)) setListaProfissionais(profList);
-            
-            if (Array.isArray(dataEsp)) setListaEspecialidades(dataEsp);
 
         } catch (error) {
             console.error("Erro ao carregar dados:", error);
@@ -101,40 +95,26 @@ export const AgendaProfissionalPage = () => {
         carregarTudo();
     }, []);
 
-    // Configura filtros iniciais baseados no usuário logado
+    // Configura filtro inicial baseado no usuário logado
     useEffect(() => {
         if (listaProfissionais.length > 0 && user?.email) {
-            const profLogado = listaProfissionais.find(p => p.nome === user.name); 
-            
+            const profLogado = listaProfissionais.find(p => p.nome === user.name);
             if (profLogado) {
                 setProfissionalFiltro(profLogado);
-                const esp = listaEspecialidades.find(e => e.nome === profLogado.especialidade);
-                if (esp) setEspecialidadeFiltro(esp);
             }
         }
-    }, [listaProfissionais, user, listaEspecialidades]);
-
-    // Filtragem Dinâmica
-    const profissionaisFiltrados = useMemo(() => {
-        if (!especialidadeFiltro) return listaProfissionais;
-        return listaProfissionais.filter(p => p.especialidade === especialidadeFiltro.nome);
-    }, [especialidadeFiltro, listaProfissionais]);
+    }, [listaProfissionais, user]);
 
     const eventosFiltrados = useMemo(() => {
         const filtrados = agendamentos.filter(ag => {
-            const prof = listaProfissionais.find(p => p.id === ag.profissionalId);
-            if (!prof) return false;
-
-            const especialidadeOk = !especialidadeFiltro || prof.especialidade === especialidadeFiltro.nome;
-            const profissionalOk = !profissionalFiltro || ag.profissionalId === profissionalFiltro.id;
-            
-            return especialidadeOk && profissionalOk;
+            if (!profissionalFiltro) return true;
+            return ag.profissionalId === profissionalFiltro.id;
         });
 
         return filtrados.map(ag => {
             const paciente = listaPacientes.find(p => p.id === ag.pacienteId);
             const tituloDisplay = ag.title || paciente?.nome || 'Paciente Desconhecido';
-            
+
             return {
                 ...ag,
                 title: tituloDisplay,
@@ -148,7 +128,7 @@ export const AgendaProfissionalPage = () => {
                 }
             };
         });
-    }, [agendamentos, especialidadeFiltro, profissionalFiltro, listaProfissionais, listaPacientes]);
+    }, [agendamentos, profissionalFiltro, listaPacientes]);
 
     // Handlers
     const handleDateSelect = (selectInfo: DateSelectArg) => {
@@ -204,7 +184,7 @@ export const AgendaProfissionalPage = () => {
         };
         // Atualização Otimista
         setAgendamentos(prev => prev.map(ag => ag.id === dropInfo.event.id ? { ...ag, ...novasDatas } : ag));
-        
+
         try {
             await appointmentsService.patch(dropInfo.event.id, novasDatas);
         } catch {
@@ -214,7 +194,7 @@ export const AgendaProfissionalPage = () => {
 
     // Popover Actions
     const handleClosePopover = () => { setPopoverAnchorEl(null); setEventoSelecionadoPopover(null); };
-    
+
     const handleChangeStatus = async (novoStatus: StatusAgendamento) => {
         if (!eventoSelecionadoPopover) return;
         try {
@@ -228,13 +208,13 @@ export const AgendaProfissionalPage = () => {
 
     const handleApagar = async () => {
         if (!eventoSelecionadoPopover) return;
-        if(confirm('Excluir?')) {
+        if (confirm('Excluir?')) {
             try {
                 await appointmentsService.delete(eventoSelecionadoPopover.id);
                 setAgendamentos(prev => prev.filter(ag => ag.id !== eventoSelecionadoPopover!.id));
                 handleClosePopover();
             } catch (error) {
-                 console.error(error);
+                console.error(error);
             }
         }
     };
@@ -243,22 +223,14 @@ export const AgendaProfissionalPage = () => {
         <Box>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h4" component="h1">Agenda por Profissional</Typography>
-                
+
                 <Box sx={{ display: 'flex', gap: 2 }}>
                     <Autocomplete
-                        options={listaEspecialidades}
-                        getOptionLabel={(option) => option.nome}
-                        value={especialidadeFiltro}
-                        onChange={(_, newValue) => { setEspecialidadeFiltro(newValue); setProfissionalFiltro(null); }}
-                        renderInput={(params) => <TextField {...params} label="Filtrar por Especialidade" size="small" sx={{ minWidth: 220 }} />}
-                    />
-                    <Autocomplete
-                        options={profissionaisFiltrados}
+                        options={listaProfissionais}
                         getOptionLabel={(option) => option.nome}
                         value={profissionalFiltro}
                         onChange={(_, newValue) => setProfissionalFiltro(newValue)}
-                        renderInput={(params) => <TextField {...params} label="Filtrar por Profissional" size="small" sx={{ minWidth: 220 }} />}
-                        disabled={!especialidadeFiltro && profissionaisFiltrados.length === listaProfissionais.length} 
+                        renderInput={(params) => <TextField {...params} label="Filtrar por Profissional" size="small" sx={{ minWidth: 250 }} />}
                     />
                 </Box>
             </Box>
@@ -303,16 +275,16 @@ export const AgendaProfissionalPage = () => {
                         <ListItemText primary="Editar" />
                     </ListItemButton>
                     <ListItemButton onClick={() => handleChangeStatus('Confirmado')}>
-                        <ListItemIcon><CheckCircleIcon fontSize="small" color="success"/></ListItemIcon>
+                        <ListItemIcon><CheckCircleIcon fontSize="small" color="success" /></ListItemIcon>
                         <ListItemText primary="Confirmar" />
                     </ListItemButton>
                     <ListItemButton onClick={() => handleChangeStatus('Cancelado')}>
-                        <ListItemIcon><CancelIcon fontSize="small" color="warning"/></ListItemIcon>
+                        <ListItemIcon><CancelIcon fontSize="small" color="warning" /></ListItemIcon>
                         <ListItemText primary="Cancelar" />
                     </ListItemButton>
                     <Divider />
                     <ListItemButton onClick={handleApagar}>
-                        <ListItemIcon><DeleteIcon fontSize="small" color="error"/></ListItemIcon>
+                        <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
                         <ListItemText primary="Excluir" />
                     </ListItemButton>
                 </List>

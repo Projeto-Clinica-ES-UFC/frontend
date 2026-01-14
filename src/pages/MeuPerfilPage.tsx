@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -6,53 +6,37 @@ import Paper from '@mui/material/Paper';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
-import Badge from '@mui/material/Badge';
-import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
 
 import { usersService } from '../services/rest-client';
 
 // Ícones
-import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 
 // Interface para o payload de atualização
 interface IUserPayload {
     name: string;
     email: string;
-    photoURL?: string;
     password?: string;
 }
 
 export const MeuPerfilPage = () => {
-    const { user, updateUser } = useAuth(); 
+    const { user, updateUser } = useAuth();
 
     // Estados
     const [nome, setNome] = useState(user?.name || '');
     const [email, setEmail] = useState(user?.email || '');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    
-    // Imagem (Apenas visual local por enquanto)
-    const [photoPreview, setPhotoPreview] = useState<string | null>(user?.photoURL || null);
-    
+
     // Feedback
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files && event.target.files[0]) {
-            const file = event.target.files[0];
-            const previewUrl = URL.createObjectURL(file);
-            setPhotoPreview(previewUrl); 
-        }
-    };
-
     const handleSave = async () => {
         setMessage(null);
-        
+
         // Validação básica
         if (!nome || !email) {
             setMessage({ type: 'error', text: "Nome e Email são obrigatórios." });
@@ -82,17 +66,16 @@ export const MeuPerfilPage = () => {
             // 2. Envia para o Backend (PUT /users/:id)
             if (!user?.id) throw new Error("ID do usuário não encontrado.");
 
-            await usersService.update(user.id, payload);
+            await usersService.update(user.id, payload as Record<string, unknown>);
 
             // 3. Atualiza o Contexto Global (Frontend)
-            updateUser({ 
-                name: nome, 
-                email: email, 
-                photoURL: photoPreview || undefined 
+            updateUser({
+                name: nome,
+                email: email
             });
 
             setMessage({ type: 'success', text: "Perfil atualizado com sucesso!" });
-            
+
             // Limpa campos de senha
             setPassword('');
             setConfirmPassword('');
@@ -115,26 +98,12 @@ export const MeuPerfilPage = () => {
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
 
                     {/* Foto de Perfil */}
-                    <Badge
-                        overlap="circular"
-                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                        badgeContent={
-                            <Tooltip title="Alterar foto (Visual)">
-                                <IconButton component="label" sx={{ bgcolor: 'background.paper', border: '1px solid lightgray' }}>
-                                    <EditIcon fontSize="small" />
-                                    <input type="file" hidden accept="image/*" onChange={handleImageChange} />
-                                </IconButton>
-                            </Tooltip>
-                        }
+                    <Avatar
+                        sx={{ width: 120, height: 120, fontSize: '3rem', bgcolor: 'primary.main' }}
                     >
-                        <Avatar 
-                            sx={{ width: 120, height: 120, fontSize: '3rem', bgcolor: 'primary.main' }}
-                            src={photoPreview || undefined}
-                        >
-                            {user?.name?.charAt(0).toUpperCase()}
-                        </Avatar>
-                    </Badge>
-                    
+                        {user?.name?.charAt(0).toUpperCase()}
+                    </Avatar>
+
                     {/* Dados Pessoais */}
                     <TextField
                         fullWidth
@@ -176,8 +145,8 @@ export const MeuPerfilPage = () => {
                     )}
 
                     {/* Botão Salvar */}
-                    <Button 
-                        variant="contained" 
+                    <Button
+                        variant="contained"
                         size="large"
                         startIcon={<SaveIcon />}
                         onClick={handleSave}

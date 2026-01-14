@@ -37,7 +37,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import PeopleIcon from '@mui/icons-material/People';
 // AttachMoneyIcon e AssessmentIcon foram removidos
-import TaskAltIcon from '@mui/icons-material/TaskAlt';
+
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -54,7 +54,7 @@ const navItems = [
   { text: 'Agendamentos', icon: <CalendarTodayIcon />, path: '/agendamentos' },
   { text: 'Agenda Profissional', icon: <EventNoteIcon />, path: '/agenda-profissional' },
   { text: 'Pacientes', icon: <PeopleIcon />, path: '/pacientes' },
-  { text: 'Tarefas', icon: <TaskAltIcon />, path: '/tarefas' },
+
 ];
 
 export const Layout = () => {
@@ -62,11 +62,11 @@ export const Layout = () => {
   const colorMode = useContext(ColorModeContext);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  
+
   const { notificacoes, unreadCount, markAllAsRead, clearAll, markAsRead } = useNotifications();
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<INotification | null>(null);
-  
+
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
@@ -91,10 +91,10 @@ export const Layout = () => {
     <div>
       <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {isDrawerOpen && (
-            <>
-                <img src="/logo_ame.jpeg" alt="Logo Clínica AME" style={{ height: 40, marginRight: 8, transition: 'opacity 0.2s' }}/>
-                <Typography variant="h6" noWrap>Clínica AME</Typography>
-            </>
+          <>
+            <img src="/logo_ame.jpeg" alt="Logo Clínica AME" style={{ height: 40, marginRight: 8, transition: 'opacity 0.2s' }} />
+            <Typography variant="h6" noWrap>Clínica AME</Typography>
+          </>
         )}
       </Toolbar>
       <Divider />
@@ -113,20 +113,20 @@ export const Layout = () => {
       <Divider sx={{ mt: 'auto' }} />
       <List>
         <ListItem disablePadding sx={{ display: 'block' }}>
-            <Tooltip title={!isDrawerOpen ? "Configuração" : ''} placement="right">
-              <ListItemButton component={NavLink} to="/configuracoes" sx={{ minHeight: 48, justifyContent: isDrawerOpen ? 'initial' : 'center', px: 2.5 }}>
-                  <ListItemIcon sx={{ minWidth: 0, mr: isDrawerOpen ? 3 : 'auto', justifyContent: 'center' }}><SettingsIcon /></ListItemIcon>
-                  <ListItemText primary="Configuração" sx={{ opacity: isDrawerOpen ? 1 : 0 }} />
-              </ListItemButton>
-            </Tooltip>
+          <Tooltip title={!isDrawerOpen ? "Configuração" : ''} placement="right">
+            <ListItemButton component={NavLink} to="/configuracoes" sx={{ minHeight: 48, justifyContent: isDrawerOpen ? 'initial' : 'center', px: 2.5 }}>
+              <ListItemIcon sx={{ minWidth: 0, mr: isDrawerOpen ? 3 : 'auto', justifyContent: 'center' }}><SettingsIcon /></ListItemIcon>
+              <ListItemText primary="Configuração" sx={{ opacity: isDrawerOpen ? 1 : 0 }} />
+            </ListItemButton>
+          </Tooltip>
         </ListItem>
         <ListItem disablePadding sx={{ display: 'block' }}>
-            <Tooltip title={!isDrawerOpen ? "Sair" : ''} placement="right">
-              <ListItemButton onClick={logout} sx={{ minHeight: 48, justifyContent: isDrawerOpen ? 'initial' : 'center', px: 2.5 }}>
-                  <ListItemIcon sx={{ minWidth: 0, mr: isDrawerOpen ? 3 : 'auto', justifyContent: 'center' }}><LogoutIcon /></ListItemIcon>
-                  <ListItemText primary="Sair" sx={{ opacity: isDrawerOpen ? 1 : 0 }} />
-              </ListItemButton>
-            </Tooltip>
+          <Tooltip title={!isDrawerOpen ? "Sair" : ''} placement="right">
+            <ListItemButton onClick={logout} sx={{ minHeight: 48, justifyContent: isDrawerOpen ? 'initial' : 'center', px: 2.5 }}>
+              <ListItemIcon sx={{ minWidth: 0, mr: isDrawerOpen ? 3 : 'auto', justifyContent: 'center' }}><LogoutIcon /></ListItemIcon>
+              <ListItemText primary="Sair" sx={{ opacity: isDrawerOpen ? 1 : 0 }} />
+            </ListItemButton>
+          </Tooltip>
         </ListItem>
       </List>
     </div>
@@ -170,7 +170,7 @@ export const Layout = () => {
             <MenuIcon />
           </IconButton>
 
-          <Box sx={{ flexGrow: 1 }} /> 
+          <Box sx={{ flexGrow: 1 }} />
 
           <Tooltip title={theme.palette.mode === 'dark' ? 'Modo Claro' : 'Modo Escuro'}>
             <IconButton sx={{ ml: 1 }} onClick={colorMode.toggleColorMode} color="inherit">
@@ -206,8 +206,8 @@ export const Layout = () => {
 
         {notificacoes.length > 0 ? (
           notificacoes.map((notification) => (
-            <MenuItem 
-              key={notification.id} 
+            <MenuItem
+              key={notification.id}
               onClick={() => handleOpenNotificationModal(notification)}
               sx={{ fontWeight: notification.read ? 'normal' : 'bold', whiteSpace: 'normal' }}
             >
@@ -231,8 +231,8 @@ export const Layout = () => {
 
       <Menu anchorEl={profileAnchorEl} open={Boolean(profileAnchorEl)} onClose={handleCloseProfileMenu}>
         <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="subtitle1" fontWeight="bold">{user?.name}</Typography>
-            <Typography variant="body2" color="text.secondary">{user?.email}</Typography>
+          <Typography variant="subtitle1" fontWeight="bold">{user?.name}</Typography>
+          <Typography variant="body2" color="text.secondary">{user?.email}</Typography>
         </Box>
         <MenuItem onClick={() => { handleCloseProfileMenu(); navigate('/meu-perfil'); }}>
           <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
@@ -240,7 +240,7 @@ export const Layout = () => {
         </MenuItem>
         <Divider />
         <MenuItem onClick={() => { handleCloseProfileMenu(); logout(); }}>
-            <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon> Sair
+          <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon> Sair
         </MenuItem>
       </Menu>
 
@@ -275,17 +275,17 @@ export const Layout = () => {
         {drawerContent}
       </Drawer>
 
-      <Box 
-        component="main" 
-        sx={{ 
-            flexGrow: 1, 
-            p: 3, 
-            mt: '64px',
-            marginLeft: { sm: `${isDrawerOpen ? drawerWidthOpen : drawerWidthClosed}px` },
-            transition: (theme) => theme.transitions.create(['width', 'margin'], {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.enteringScreen,
-            }),
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          mt: '64px',
+          marginLeft: { sm: `${isDrawerOpen ? drawerWidthOpen : drawerWidthClosed}px` },
+          transition: (theme) => theme.transitions.create(['width', 'margin'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
         }}
       >
         <Outlet />

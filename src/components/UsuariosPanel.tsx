@@ -98,8 +98,8 @@ export const UsuariosPanel = () => {
                     password: dados.password || '', // Password is required for sign up
                     name: dados.nome,
                     // Pass extra fields if your schema supports them
+                    role: dados.perfil,
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    role: dados.perfil, 
                 } as any);
 
                 if (error) {
@@ -111,8 +111,8 @@ export const UsuariosPanel = () => {
                 handleFecharModal();
             }
         } catch (error) {
-             console.error("Erro ao salvar usuário:", error);
-             alert("Erro ao salvar usuário.");
+            console.error("Erro ao salvar usuário:", error);
+            alert("Erro ao salvar usuário.");
         }
     };
 
