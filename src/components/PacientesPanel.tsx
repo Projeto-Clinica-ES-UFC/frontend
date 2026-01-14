@@ -12,8 +12,6 @@ import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { useNavigate } from 'react-router-dom';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -29,14 +27,11 @@ import { patientsService } from '../services/rest-client';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
-import ViewListIcon from '@mui/icons-material/ViewList';
-import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
 
 import { PacienteFormModal } from './PacienteFormModal';
-import { PacientesKanban } from './PacientesKanban';
 
 interface IPaciente {
     id: number;
@@ -53,7 +48,6 @@ export const PacientesPanel = () => {
     const [pacientes, setPacientes] = useState<IPaciente[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pacienteParaEditar, setPacienteParaEditar] = useState<IPaciente | null>(null);
-    const [viewMode, setViewMode] = useState<'lista' | 'kanban'>('lista');
 
     // Filtros
     const [filtroDataInicio, setFiltroDataInicio] = useState<Date | null>(null);
@@ -144,16 +138,6 @@ export const PacientesPanel = () => {
         }
     };
 
-    const handlePacienteStatusChange = async (pacienteId: number, novoStatus: IPaciente['status']) => {
-        setPacientes(atuais =>
-            atuais.map(p => p.id === pacienteId ? { ...p, status: novoStatus } : p)
-        );
-    };
-
-    const handleChangeView = (_event: React.MouseEvent<HTMLElement>, newView: 'lista' | 'kanban' | null) => {
-        if (newView !== null) setViewMode(newView);
-    };
-
     // Lógica de Filtragem
     const pacientesFiltrados = pacientes.filter(paciente => {
         if (!paciente.dataNascimento) return false;
@@ -235,73 +219,58 @@ export const PacientesPanel = () => {
                 >
                     Limpar
                 </Button>
-
-                <ToggleButtonGroup
-                    value={viewMode} exclusive onChange={handleChangeView}
-                    size="small" sx={{ ml: 1 }}
-                >
-                    <ToggleButton value="lista"><Tooltip title="Lista"><ViewListIcon /></Tooltip></ToggleButton>
-                    <ToggleButton value="kanban"><Tooltip title="Kanban"><ViewKanbanIcon /></Tooltip></ToggleButton>
-                </ToggleButtonGroup>
             </Paper>
 
-            {viewMode === 'lista' ? (
-                <TableContainer component={Paper} elevation={2} sx={{ borderRadius: 2 }}>
-                    <Table size="small">
-                        <TableHead sx={{ bgcolor: 'grey.100' }}>
+            <TableContainer component={Paper} elevation={2} sx={{ borderRadius: 2 }}>
+                <Table size="small">
+                    <TableHead sx={{ bgcolor: 'grey.100' }}>
+                        <TableRow>
+                            <TableCell><strong>Nome</strong></TableCell>
+                            <TableCell><strong>CPF</strong></TableCell>
+                            <TableCell><strong>Data Nasc.</strong></TableCell>
+                            <TableCell><strong>Responsável</strong></TableCell>
+                            <TableCell><strong>Telefone</strong></TableCell>
+                            <TableCell align="right"><strong>Ações</strong></TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {pacientesFiltrados.length === 0 ? (
                             <TableRow>
-                                <TableCell><strong>Nome</strong></TableCell>
-                                <TableCell><strong>CPF</strong></TableCell>
-                                <TableCell><strong>Data Nasc.</strong></TableCell>
-                                <TableCell><strong>Responsável</strong></TableCell>
-                                <TableCell><strong>Telefone</strong></TableCell>
-                                <TableCell align="right"><strong>Ações</strong></TableCell>
+                                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                                    <Typography variant="body2" color="text.secondary">Nenhum paciente encontrado</Typography>
+                                </TableCell>
                             </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {pacientesFiltrados.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                                        <Typography variant="body2" color="text.secondary">Nenhum paciente encontrado</Typography>
+                        ) : (
+                            pacientesFiltrados.map((paciente) => (
+                                <TableRow key={paciente.id} hover>
+                                    <TableCell sx={{ py: 1.5 }}>{paciente.nome}</TableCell>
+                                    <TableCell sx={{ py: 1.5 }}>{paciente.cpf}</TableCell>
+                                    <TableCell sx={{ py: 1.5 }}>{formatDateBR(paciente.dataNascimento)}</TableCell>
+                                    <TableCell sx={{ py: 1.5 }}>{paciente.nomeResponsavel}</TableCell>
+                                    <TableCell sx={{ py: 1.5 }}>{paciente.telefoneResponsavel}</TableCell>
+                                    <TableCell align="right" sx={{ py: 1.5 }}>
+                                        <Tooltip title="Ver Prontuário">
+                                            <IconButton size="small" color="info" onClick={() => navigate(`/pacientes/${paciente.id}/prontuario`)}>
+                                                <DescriptionIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                        <Tooltip title="Editar">
+                                            <IconButton size="small" onClick={() => handleAbrirModalParaEditar(paciente)}>
+                                                <EditIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                        <Tooltip title="Excluir">
+                                            <IconButton size="small" color="error" onClick={() => handleApagar(paciente.id)}>
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
                                     </TableCell>
                                 </TableRow>
-                            ) : (
-                                pacientesFiltrados.map((paciente) => (
-                                    <TableRow key={paciente.id} hover>
-                                        <TableCell sx={{ py: 1.5 }}>{paciente.nome}</TableCell>
-                                        <TableCell sx={{ py: 1.5 }}>{paciente.cpf}</TableCell>
-                                        <TableCell sx={{ py: 1.5 }}>{formatDateBR(paciente.dataNascimento)}</TableCell>
-                                        <TableCell sx={{ py: 1.5 }}>{paciente.nomeResponsavel}</TableCell>
-                                        <TableCell sx={{ py: 1.5 }}>{paciente.telefoneResponsavel}</TableCell>
-                                        <TableCell align="right" sx={{ py: 1.5 }}>
-                                            <Tooltip title="Ver Prontuário">
-                                                <IconButton size="small" color="info" onClick={() => navigate(`/pacientes/${paciente.id}/prontuario`)}>
-                                                    <DescriptionIcon fontSize="small" />
-                                                </IconButton>
-                                            </Tooltip>
-                                            <Tooltip title="Editar">
-                                                <IconButton size="small" onClick={() => handleAbrirModalParaEditar(paciente)}>
-                                                    <EditIcon fontSize="small" />
-                                                </IconButton>
-                                            </Tooltip>
-                                            <Tooltip title="Excluir">
-                                                <IconButton size="small" color="error" onClick={() => handleApagar(paciente.id)}>
-                                                    <DeleteIcon fontSize="small" />
-                                                </IconButton>
-                                            </Tooltip>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            ) : (
-                <PacientesKanban
-                    pacientes={pacientesFiltrados}
-                    onPacienteStatusChange={handlePacienteStatusChange}
-                />
-            )}
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </TableContainer>
 
             <PacienteFormModal
                 open={isModalOpen}
