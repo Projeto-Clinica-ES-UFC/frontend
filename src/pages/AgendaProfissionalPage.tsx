@@ -80,11 +80,30 @@ export const AgendaProfissionalPage = () => {
             ]);
 
             if (Array.isArray(dataAg)) setAgendamentos(dataAg);
-            if (Array.isArray(dataPac)) setListaPacientes(dataPac);
+
+            // Map patients (name -> nome)
+            if (Array.isArray(dataPac)) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const mappedPacientes = dataPac.map((p: any) => ({
+                    id: p.id,
+                    nome: p.name || p.nome
+                }));
+                setListaPacientes(mappedPacientes);
+            }
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const profList = (dataProf as any).data || dataProf;
-            if (Array.isArray(profList)) setListaProfissionais(profList);
+            if (Array.isArray(profList)) {
+                // Map professionals (name -> nome)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const mappedProfissionais = profList.map((p: any) => ({
+                    id: p.id,
+                    nome: p.name || p.nome,
+                    email: p.email,
+                    especialidade: p.specialty || p.especialidade || ''
+                }));
+                setListaProfissionais(mappedProfissionais);
+            }
 
         } catch (error) {
             console.error("Erro ao carregar dados:", error);
@@ -186,7 +205,7 @@ export const AgendaProfissionalPage = () => {
         setAgendamentos(prev => prev.map(ag => ag.id === dropInfo.event.id ? { ...ag, ...novasDatas } : ag));
 
         try {
-            await appointmentsService.patch(dropInfo.event.id, novasDatas);
+            await appointmentsService.update(dropInfo.event.id, novasDatas);
         } catch {
             carregarTudo();
         }
@@ -198,7 +217,7 @@ export const AgendaProfissionalPage = () => {
     const handleChangeStatus = async (novoStatus: StatusAgendamento) => {
         if (!eventoSelecionadoPopover) return;
         try {
-            await appointmentsService.patch(eventoSelecionadoPopover.id, { status: novoStatus });
+            await appointmentsService.update(eventoSelecionadoPopover.id, { status: novoStatus });
             setAgendamentos(prev => prev.map(ag => ag.id === eventoSelecionadoPopover.id ? { ...ag, status: novoStatus } : ag));
             handleClosePopover();
         } catch (error) {

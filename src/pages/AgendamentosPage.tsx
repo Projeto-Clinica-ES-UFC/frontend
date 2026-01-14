@@ -83,12 +83,29 @@ export const AgendamentosPage = () => {
                 professionalsService.getAll()
             ]);
 
-            if(Array.isArray(dataAgendamentos)) setAgendamentos(dataAgendamentos);
-            if(Array.isArray(dataPacientes)) setListaPacientes(dataPacientes);
-            
+            if (Array.isArray(dataAgendamentos)) setAgendamentos(dataAgendamentos);
+
+            // Map patients (name -> nome)
+            if (Array.isArray(dataPacientes)) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const mappedPacientes = dataPacientes.map((p: any) => ({
+                    id: p.id,
+                    nome: p.name || p.nome
+                }));
+                setListaPacientes(mappedPacientes);
+            }
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const profList = (dataProfissionais as any).data || dataProfissionais;
-            if(Array.isArray(profList)) setListaProfissionais(profList);
+            if (Array.isArray(profList)) {
+                // Map professionals (name -> nome)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const mappedProfissionais = profList.map((p: any) => ({
+                    id: p.id,
+                    nome: p.name || p.nome
+                }));
+                setListaProfissionais(mappedProfissionais);
+            }
 
         } catch (error) {
             console.error("Erro ao carregar dados:", error);
@@ -123,7 +140,7 @@ export const AgendamentosPage = () => {
             end: dropInfo.event.endStr || undefined
         };
 
-        setAgendamentos(prev => prev.map(ag => 
+        setAgendamentos(prev => prev.map(ag =>
             ag.id === agendamentoId ? { ...ag, ...novasDatas } : ag
         ));
 
@@ -139,7 +156,7 @@ export const AgendamentosPage = () => {
     // --- Handlers de CRUD ---
 
     // CORREÇÃO AQUI: Tipagem explícita em vez de 'any'
-    const handleSalvarAgendamento = async (dados: { 
+    const handleSalvarAgendamento = async (dados: {
         id?: string;
         title?: string;
         start: string;
@@ -169,17 +186,17 @@ export const AgendamentosPage = () => {
                 setIsModalOpen(false);
             }
         } catch (error) {
-             console.error(error);
-             alert("Erro ao salvar.");
+            console.error(error);
+            alert("Erro ao salvar.");
         }
     };
 
     const handleChangeStatusDoPopover = async (novoStatus: StatusAgendamento) => {
         if (!eventoSelecionadoPopover) return;
-        
+
         try {
             await appointmentsService.patch(eventoSelecionadoPopover.id, { status: novoStatus });
-            setAgendamentos(prev => prev.map(ag => 
+            setAgendamentos(prev => prev.map(ag =>
                 ag.id === eventoSelecionadoPopover.id ? { ...ag, status: novoStatus } : ag
             ));
         } catch (error) {
@@ -219,7 +236,7 @@ export const AgendamentosPage = () => {
 
     // --- Lógica de Renderização ---
 
-    const agendamentosFiltrados = agendamentos.filter(ag => 
+    const agendamentosFiltrados = agendamentos.filter(ag =>
         (filtroStatus === 'Todos' || ag.status === filtroStatus) &&
         (filtroPacienteId === 'Todos' || ag.pacienteId === filtroPacienteId) &&
         (filtroProfissionalId === 'Todos' || ag.profissionalId === filtroProfissionalId)
@@ -270,7 +287,7 @@ export const AgendamentosPage = () => {
             <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.75rem', p: '2px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <b>{eventInfo.timeText}</b>
-                    {pendencia && <Tooltip title="Pendência Unimed"><WarningAmberIcon sx={{ fontSize: '1rem', marginLeft: '4px' }}/></Tooltip>}
+                    {pendencia && <Tooltip title="Pendência Unimed"><WarningAmberIcon sx={{ fontSize: '1rem', marginLeft: '4px' }} /></Tooltip>}
                 </Box>
                 <span>{nomePaciente}</span>
             </Box>
@@ -279,134 +296,134 @@ export const AgendamentosPage = () => {
 
     return (
         <>
-          <style>{estilosCalendario}</style>
-          <Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="h4" component="h1">Painel de Agendamentos</Typography>
-                  <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setDataSelecionada(''); setEventoParaEditar(null); setIsModalOpen(true); }}>
-                      Novo Agendamento
-                  </Button>
-              </Box>
+            <style>{estilosCalendario}</style>
+            <Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="h4" component="h1">Painel de Agendamentos</Typography>
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setDataSelecionada(''); setEventoParaEditar(null); setIsModalOpen(true); }}>
+                        Novo Agendamento
+                    </Button>
+                </Box>
 
-              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
-                  <Box sx={{ flexGrow: 1 }}>
-                      <Paper elevation={3} sx={{ p: 2 }}>
-                          <FullCalendar
-                              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                              initialView="dayGridMonth"
-                              headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }}
-                              events={agendamentosFiltrados.map(ag => ({ 
-                                  id: ag.id,
-                                  title: ag.title,
-                                  start: ag.start,
-                                  end: ag.end,
-                                  backgroundColor: ag.backgroundColor,
-                                  borderColor: ag.borderColor,
-                                  extendedProps: {
-                                    status: ag.status,
-                                    pacienteId: ag.pacienteId,
-                                    profissionalId: ag.profissionalId,
-                                    pendenciaUnimed: ag.pendenciaUnimed,
-                                  } 
-                              }))}
-                              eventContent={renderEventContent}
-                              locale={ptBrLocale}
-                              editable={true}
-                              selectable={true}
-                              select={handleDateSelect}
-                              eventClick={handleEventClick}
-                              eventDrop={handleEventDrop}
-                              dayMaxEvents={true}
-                              height="75vh"
-                              eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
-                          />
-                      </Paper>
-                  </Box>
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
+                    <Box sx={{ flexGrow: 1 }}>
+                        <Paper elevation={3} sx={{ p: 2 }}>
+                            <FullCalendar
+                                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                                initialView="dayGridMonth"
+                                headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }}
+                                events={agendamentosFiltrados.map(ag => ({
+                                    id: ag.id,
+                                    title: ag.title,
+                                    start: ag.start,
+                                    end: ag.end,
+                                    backgroundColor: ag.backgroundColor,
+                                    borderColor: ag.borderColor,
+                                    extendedProps: {
+                                        status: ag.status,
+                                        pacienteId: ag.pacienteId,
+                                        profissionalId: ag.profissionalId,
+                                        pendenciaUnimed: ag.pendenciaUnimed,
+                                    }
+                                }))}
+                                eventContent={renderEventContent}
+                                locale={ptBrLocale}
+                                editable={true}
+                                selectable={true}
+                                select={handleDateSelect}
+                                eventClick={handleEventClick}
+                                eventDrop={handleEventDrop}
+                                dayMaxEvents={true}
+                                height="75vh"
+                                eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+                            />
+                        </Paper>
+                    </Box>
 
-                  <Box sx={{ width: { xs: '100%', md: '280px' }, flexShrink: 0 }}>
-                      <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
-                          <Typography variant="h6" gutterBottom>Filtrar por</Typography>
-                          <Autocomplete
-                              id="filtro-paciente"
-                              options={[{ id: 'Todos' as const, nome: 'Todos os Pacientes' }, ...listaPacientes]} 
-                              getOptionLabel={(option) => option.nome}
-                              value={filtroPacienteId === 'Todos' ? { id: 'Todos', nome: 'Todos os Pacientes' } : listaPacientes.find(p => p.id === filtroPacienteId) || null}
-                              onChange={(_event, newValue) => setFiltroPacienteId(newValue ? (newValue.id as number | 'Todos') : 'Todos')}
-                              renderInput={(params) => <TextField {...params} label="Paciente" variant="outlined" size="small" />}
-                              sx={{ mb: 2 }}
-                          />
-                          <Autocomplete
-                              id="filtro-profissional"
-                              options={[{ id: 'Todos' as const, nome: 'Todos os Profissionais' }, ...listaProfissionais]} 
-                              getOptionLabel={(option) => option.nome}
-                              value={filtroProfissionalId === 'Todos' ? { id: 'Todos', nome: 'Todos os Profissionais' } : listaProfissionais.find(p => p.id === filtroProfissionalId) || null}
-                              onChange={(_event, newValue) => setFiltroProfissionalId(newValue ? (newValue.id as number | 'Todos') : 'Todos')}
-                              renderInput={(params) => <TextField {...params} label="Profissional" variant="outlined" size="small" />}
-                          />
-                      </Paper>
+                    <Box sx={{ width: { xs: '100%', md: '280px' }, flexShrink: 0 }}>
+                        <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
+                            <Typography variant="h6" gutterBottom>Filtrar por</Typography>
+                            <Autocomplete
+                                id="filtro-paciente"
+                                options={[{ id: 'Todos' as const, nome: 'Todos os Pacientes' }, ...listaPacientes]}
+                                getOptionLabel={(option) => option.nome}
+                                value={filtroPacienteId === 'Todos' ? { id: 'Todos', nome: 'Todos os Pacientes' } : listaPacientes.find(p => p.id === filtroPacienteId) || null}
+                                onChange={(_event, newValue) => setFiltroPacienteId(newValue ? (newValue.id as number | 'Todos') : 'Todos')}
+                                renderInput={(params) => <TextField {...params} label="Paciente" variant="outlined" size="small" />}
+                                sx={{ mb: 2 }}
+                            />
+                            <Autocomplete
+                                id="filtro-profissional"
+                                options={[{ id: 'Todos' as const, nome: 'Todos os Profissionais' }, ...listaProfissionais]}
+                                getOptionLabel={(option) => option.nome}
+                                value={filtroProfissionalId === 'Todos' ? { id: 'Todos', nome: 'Todos os Profissionais' } : listaProfissionais.find(p => p.id === filtroProfissionalId) || null}
+                                onChange={(_event, newValue) => setFiltroProfissionalId(newValue ? (newValue.id as number | 'Todos') : 'Todos')}
+                                renderInput={(params) => <TextField {...params} label="Profissional" variant="outlined" size="small" />}
+                            />
+                        </Paper>
 
-                      <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
-                          <Typography variant="h6" gutterBottom>Filtros de Status</Typography>
-                          <Button fullWidth variant={filtroStatus === 'Todos' ? 'contained' : 'outlined'} onClick={() => setFiltroStatus('Todos')} sx={{ mb: 1 }}>Mostrar Todos</Button>
-                          <Button fullWidth variant={filtroStatus === 'Pendente' ? 'contained' : 'outlined'} onClick={() => setFiltroStatus('Pendente')} sx={{ mb: 1 }}>Pendente</Button>
-                          <Button fullWidth variant={filtroStatus === 'Confirmado' ? 'contained' : 'outlined'} onClick={() => setFiltroStatus('Confirmado')} sx={{ mb: 1 }}>Confirmado</Button>
-                          <Button fullWidth variant={filtroStatus === 'Realizado' ? 'contained' : 'outlined'} onClick={() => setFiltroStatus('Realizado')} sx={{ mb: 1 }}>Realizado</Button>
-                          <Button fullWidth variant={filtroStatus === 'Cancelado' ? 'contained' : 'outlined'} onClick={() => setFiltroStatus('Cancelado')}>Cancelado</Button>
-                      </Paper>
+                        <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
+                            <Typography variant="h6" gutterBottom>Filtros de Status</Typography>
+                            <Button fullWidth variant={filtroStatus === 'Todos' ? 'contained' : 'outlined'} onClick={() => setFiltroStatus('Todos')} sx={{ mb: 1 }}>Mostrar Todos</Button>
+                            <Button fullWidth variant={filtroStatus === 'Pendente' ? 'contained' : 'outlined'} onClick={() => setFiltroStatus('Pendente')} sx={{ mb: 1 }}>Pendente</Button>
+                            <Button fullWidth variant={filtroStatus === 'Confirmado' ? 'contained' : 'outlined'} onClick={() => setFiltroStatus('Confirmado')} sx={{ mb: 1 }}>Confirmado</Button>
+                            <Button fullWidth variant={filtroStatus === 'Realizado' ? 'contained' : 'outlined'} onClick={() => setFiltroStatus('Realizado')} sx={{ mb: 1 }}>Realizado</Button>
+                            <Button fullWidth variant={filtroStatus === 'Cancelado' ? 'contained' : 'outlined'} onClick={() => setFiltroStatus('Cancelado')}>Cancelado</Button>
+                        </Paper>
 
-                      <Paper elevation={3} sx={{ p: 2 }}>
-                          <Typography variant="h6" gutterBottom>Resumo de Hoje</Typography>
-                          <Typography>Total: {totalHoje}</Typography>
-                          <Typography sx={{ color: CORES_STATUS.Confirmado }}>Confirmados: {confirmadosHoje}</Typography>
-                          <Typography sx={{ color: CORES_STATUS.Pendente }}>Pendentes: {pendentesHoje}</Typography>
-                          <Typography sx={{ color: CORES_STATUS.Realizado }}>Realizados: {realizadosHoje}</Typography>
-                          <Typography sx={{ color: CORES_STATUS.Cancelado }}>Cancelados: {canceladosHoje}</Typography>
-                      </Paper>
-                  </Box>
-              </Box>
+                        <Paper elevation={3} sx={{ p: 2 }}>
+                            <Typography variant="h6" gutterBottom>Resumo de Hoje</Typography>
+                            <Typography>Total: {totalHoje}</Typography>
+                            <Typography sx={{ color: CORES_STATUS.Confirmado }}>Confirmados: {confirmadosHoje}</Typography>
+                            <Typography sx={{ color: CORES_STATUS.Pendente }}>Pendentes: {pendentesHoje}</Typography>
+                            <Typography sx={{ color: CORES_STATUS.Realizado }}>Realizados: {realizadosHoje}</Typography>
+                            <Typography sx={{ color: CORES_STATUS.Cancelado }}>Cancelados: {canceladosHoje}</Typography>
+                        </Paper>
+                    </Box>
+                </Box>
 
-              <AgendamentoFormModal
-                  open={isModalOpen}
-                  onClose={handleFecharModal}
-                  onSave={handleSalvarAgendamento}
-                  eventoParaEditar={eventoParaEditar}
-                  dataSelecionada={dataSelecionada}
-                  pacientes={listaPacientes} 
-                  profissionais={listaProfissionais}
-              />
+                <AgendamentoFormModal
+                    open={isModalOpen}
+                    onClose={handleFecharModal}
+                    onSave={handleSalvarAgendamento}
+                    eventoParaEditar={eventoParaEditar}
+                    dataSelecionada={dataSelecionada}
+                    pacientes={listaPacientes}
+                    profissionais={listaProfissionais}
+                />
 
-              <Popover
-                  open={Boolean(popoverAnchorEl)}
-                  anchorEl={popoverAnchorEl}
-                  onClose={handleClosePopover}
-                  anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                  transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-              >
-                  <List dense>
-                      <ListItemButton onClick={handleEditarDoPopover}>
-                          <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
-                          <ListItemText primary="Editar" />
-                      </ListItemButton>
-                      {eventoSelecionadoPopover?.status !== 'Confirmado' && (
-                          <ListItemButton onClick={() => handleChangeStatusDoPopover('Confirmado')}>
-                              <ListItemIcon><CheckCircleIcon fontSize="small" color="success"/></ListItemIcon>
-                              <ListItemText primary="Confirmar" />
-                          </ListItemButton>
-                      )}
-                      {eventoSelecionadoPopover?.status !== 'Cancelado' && (
-                          <ListItemButton onClick={() => handleChangeStatusDoPopover('Cancelado')}>
-                              <ListItemIcon><CancelIcon fontSize="small" color="warning"/></ListItemIcon>
-                              <ListItemText primary="Cancelar" />
-                          </ListItemButton>
-                      )}
-                      <Divider />
-                      <ListItemButton onClick={handleApagarDoPopover}>
-                          <ListItemIcon><DeleteIcon fontSize="small" color="error"/></ListItemIcon>
-                          <ListItemText primary="Excluir" />
-                      </ListItemButton>
-                  </List>
-              </Popover>
-          </Box>
+                <Popover
+                    open={Boolean(popoverAnchorEl)}
+                    anchorEl={popoverAnchorEl}
+                    onClose={handleClosePopover}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                >
+                    <List dense>
+                        <ListItemButton onClick={handleEditarDoPopover}>
+                            <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+                            <ListItemText primary="Editar" />
+                        </ListItemButton>
+                        {eventoSelecionadoPopover?.status !== 'Confirmado' && (
+                            <ListItemButton onClick={() => handleChangeStatusDoPopover('Confirmado')}>
+                                <ListItemIcon><CheckCircleIcon fontSize="small" color="success" /></ListItemIcon>
+                                <ListItemText primary="Confirmar" />
+                            </ListItemButton>
+                        )}
+                        {eventoSelecionadoPopover?.status !== 'Cancelado' && (
+                            <ListItemButton onClick={() => handleChangeStatusDoPopover('Cancelado')}>
+                                <ListItemIcon><CancelIcon fontSize="small" color="warning" /></ListItemIcon>
+                                <ListItemText primary="Cancelar" />
+                            </ListItemButton>
+                        )}
+                        <Divider />
+                        <ListItemButton onClick={handleApagarDoPopover}>
+                            <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+                            <ListItemText primary="Excluir" />
+                        </ListItemButton>
+                    </List>
+                </Popover>
+            </Box>
         </>
     );
 };
