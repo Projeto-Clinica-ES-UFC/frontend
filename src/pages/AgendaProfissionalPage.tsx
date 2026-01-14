@@ -180,10 +180,14 @@ export const AgendaProfissionalPage = () => {
         pendenciaUnimed?: boolean;
     }) => {
         const payload = {
-            ...dados,
-            pacienteId: Number(dados.pacienteId),
-            profissionalId: Number(dados.profissionalId),
-            pendenciaUnimed: Boolean(dados.pendenciaUnimed)
+            id: dados.id,
+            title: dados.title,
+            start: new Date(dados.start).toISOString(),
+            end: dados.end ? new Date(dados.end).toISOString() : undefined,
+            status: dados.status,
+            patientId: Number(dados.pacienteId),
+            professionalId: Number(dados.profissionalId),
+            unimedPending: Boolean(dados.pendenciaUnimed)
         };
 
         try {
