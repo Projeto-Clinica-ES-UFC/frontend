@@ -34,7 +34,6 @@ import { useTheme } from '@mui/material/styles';
 import MenuIcon from '@mui/icons-material/Menu';
 import HomeIcon from '@mui/icons-material/Home';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import EventNoteIcon from '@mui/icons-material/EventNote';
 import PeopleIcon from '@mui/icons-material/People';
 // AttachMoneyIcon e AssessmentIcon foram removidos
 
@@ -52,7 +51,6 @@ const drawerWidthClosed = 60;
 const navItems = [
   { text: 'Início', icon: <HomeIcon />, path: '/' },
   { text: 'Agendamentos', icon: <CalendarTodayIcon />, path: '/agendamentos' },
-  { text: 'Agenda Profissional', icon: <EventNoteIcon />, path: '/agenda-profissional' },
   { text: 'Pacientes', icon: <PeopleIcon />, path: '/pacientes' },
 
 ];

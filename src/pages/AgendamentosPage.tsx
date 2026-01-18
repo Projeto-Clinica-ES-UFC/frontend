@@ -11,7 +11,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemButton from '@mui/material/ListItemButton';
 import Divider from '@mui/material/Divider';
-import Tooltip from '@mui/material/Tooltip';
+
 
 // FullCalendar
 import FullCalendar from '@fullcalendar/react';
@@ -29,10 +29,11 @@ import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelIcon from '@mui/icons-material/CancelOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 
-// Modal
+// Modal & Dialogs
 import { AgendamentoFormModal } from '../components/AgendamentoFormModal';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 // Tipos
 type StatusAgendamento = 'Pendente' | 'Confirmado' | 'Realizado' | 'Cancelado';
@@ -48,14 +49,13 @@ interface IEvento {
     status: StatusAgendamento;
     pacienteId: number | null;
     profissionalId: number | null;
-    pendenciaUnimed?: boolean;
 }
 
 const CORES_STATUS: Record<StatusAgendamento, string> = {
-    Pendente: '#f1dc1eff',
-    Confirmado: '#1773beff',
-    Realizado: '#0aa363ff',
-    Cancelado: '#b61313ff',
+    Pendente: '#ed6c02', // Orange
+    Confirmado: '#2e7d32', // Green
+    Realizado: '#1976d2', // Blue
+    Cancelado: '#d32f2f', // Red
 };
 
 export const AgendamentosPage = () => {
@@ -74,6 +74,19 @@ export const AgendamentosPage = () => {
     const [popoverAnchorEl, setPopoverAnchorEl] = useState<HTMLElement | null>(null);
     const [eventoSelecionadoPopover, setEventoSelecionadoPopover] = useState<IEvento | null>(null);
 
+    // Dialog State
+    const [dialogState, setDialogState] = useState({
+        open: false,
+        title: '',
+        message: '',
+        isAlert: false,
+        onConfirm: () => { }
+    });
+
+    const closeDialog = () => setDialogState(prev => ({ ...prev, open: false }));
+
+
+
     // --- Carregamento Inicial (Agendamentos + Pacientes + Profissionais) ---
     const carregarTudo = async () => {
         try {
@@ -83,7 +96,22 @@ export const AgendamentosPage = () => {
                 professionalsService.getAll()
             ]);
 
-            if (Array.isArray(dataAgendamentos)) setAgendamentos(dataAgendamentos);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const agendamentosList = (dataAgendamentos as any).data || dataAgendamentos;
+            if (Array.isArray(agendamentosList)) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const mappedAgendamentos = agendamentosList.map((a: any) => ({
+                    id: String(a.id),
+                    title: a.title,
+                    start: a.start,
+                    end: a.end,
+                    status: a.status,
+                    pacienteId: a.patientId,
+                    profissionalId: a.professionalId,
+                }));
+                setAgendamentos(mappedAgendamentos);
+            }
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const pacList = (dataPacientes as any).data || dataPacientes;
@@ -151,8 +179,13 @@ export const AgendamentosPage = () => {
             await appointmentsService.update(agendamentoId, novasDatas);
         } catch (err) {
             console.error("Erro ao mover evento:", err);
-            alert("Erro ao mover agendamento. Recarregando...");
-            carregarTudo();
+            setDialogState({
+                open: true,
+                title: 'Erro de Movimentação',
+                message: 'Erro ao mover agendamento. Recarregando...',
+                isAlert: true,
+                onConfirm: () => { closeDialog(); carregarTudo(); }
+            });
         }
     };
 
@@ -167,7 +200,6 @@ export const AgendamentosPage = () => {
         status: string;
         pacienteId?: number | null;
         profissionalId?: number | null;
-        pendenciaUnimed?: boolean;
     }) => {
         const payload = {
             id: dados.id,
@@ -177,7 +209,6 @@ export const AgendamentosPage = () => {
             status: dados.status,
             patientId: Number(dados.pacienteId),
             professionalId: Number(dados.profissionalId),
-            unimedPending: Boolean(dados.pendenciaUnimed) // backend expects unimedPending
         };
 
         try {
@@ -192,9 +223,25 @@ export const AgendamentosPage = () => {
                 carregarTudo();
                 setIsModalOpen(false);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert("Erro ao salvar.");
+            if (error.status === 409) {
+                setDialogState({
+                    open: true,
+                    title: 'Horário Indisponível',
+                    message: 'Este profissional já possui um agendamento neste horário.',
+                    isAlert: true,
+                    onConfirm: closeDialog
+                });
+            } else {
+                setDialogState({
+                    open: true,
+                    title: 'Erro',
+                    message: "Erro ao salvar: " + (error.message || "Tente novamente."),
+                    isAlert: true,
+                    onConfirm: closeDialog
+                });
+            }
         }
     };
 
@@ -213,13 +260,23 @@ export const AgendamentosPage = () => {
     };
 
     const handleApagarDoPopover = async () => {
-        if (eventoSelecionadoPopover && window.confirm('Excluir agendamento?')) {
-            try {
-                await appointmentsService.delete(eventoSelecionadoPopover.id);
-                setAgendamentos(prev => prev.filter(ag => ag.id !== eventoSelecionadoPopover!.id));
-            } catch (error) {
-                console.error(error);
-            }
+        if (eventoSelecionadoPopover) {
+            const idParaExcluir = eventoSelecionadoPopover.id;
+            setDialogState({
+                open: true,
+                title: 'Excluir Agendamento',
+                message: 'Tem certeza que deseja excluir este agendamento?',
+                isAlert: false,
+                onConfirm: async () => {
+                    try {
+                        await appointmentsService.delete(idParaExcluir);
+                        setAgendamentos(prev => prev.filter(ag => ag.id !== idParaExcluir));
+                        closeDialog();
+                    } catch (error) {
+                        console.error(error);
+                    }
+                }
+            });
         }
         handleClosePopover();
     };
@@ -257,9 +314,8 @@ export const AgendamentosPage = () => {
         return {
             ...ag,
             title: displayTitle,
-            backgroundColor: CORES_STATUS[ag.status],
-            borderColor: CORES_STATUS[ag.status],
-        }
+            classNames: [`fc-event-${ag.status.toLowerCase()}`]
+        };
     });
 
     const hoje = new Date().toLocaleDateString('sv-SE');
@@ -277,24 +333,36 @@ export const AgendamentosPage = () => {
         .fc-daygrid-event, .fc-timegrid-event { width: 100% !important; padding: 0 !important; border: none !important; display: flex !important; }
         .fc-event-main, .fc-event-main-frame { height: 100%; width: 100%; display: block !important; }
         .fc-event-main-frame > .MuiBox-root { height: 100%; width: 100%; box-sizing: border-box; }
-        .fc-event-pendente { background-color: ${CORES_STATUS.Pendente} !important; color: #fff !important; }
-        .fc-event-confirmado { background-color: ${CORES_STATUS.Confirmado} !important; color: #fff !important; }
-        .fc-event-realizado { background-color: ${CORES_STATUS.Realizado} !important; color: #fff !important; }
-        .fc-event-cancelado { background-color: ${CORES_STATUS.Cancelado} !important; color: #fff !important; }
-        .fc-event-pendente .MuiSvgIcon-root { color: #333 !important; }
-        .fc-event-confirmado .MuiSvgIcon-root, .fc-event-realizado .MuiSvgIcon-root, .fc-event-cancelado .MuiSvgIcon-root { color: #fff !important; }
+        .fc-event-pendente { background-color: #fff !important; color: ${CORES_STATUS.Pendente} !important; border: 1px solid ${CORES_STATUS.Pendente} !important; border-left: 4px solid ${CORES_STATUS.Pendente} !important; }
+        .fc-event-confirmado { background-color: #fff !important; color: ${CORES_STATUS.Confirmado} !important; border: 1px solid ${CORES_STATUS.Confirmado} !important; border-left: 4px solid ${CORES_STATUS.Confirmado} !important; }
+        .fc-event-realizado { background-color: #fff !important; color: ${CORES_STATUS.Realizado} !important; border: 1px solid ${CORES_STATUS.Realizado} !important; border-left: 4px solid ${CORES_STATUS.Realizado} !important; }
+        .fc-event-cancelado { background-color: #fff !important; color: ${CORES_STATUS.Cancelado} !important; border: 1px solid ${CORES_STATUS.Cancelado} !important; border-left: 4px solid ${CORES_STATUS.Cancelado} !important; }
+        .fc-event-pendente .MuiSvgIcon-root { color: ${CORES_STATUS.Pendente} !important; }
+        .fc-event-confirmado .MuiSvgIcon-root, .fc-event-realizado .MuiSvgIcon-root, .fc-event-cancelado .MuiSvgIcon-root { color: inherit !important; }
+        .fc-event-confirmado .MuiSvgIcon-root, .fc-event-realizado .MuiSvgIcon-root, .fc-event-cancelado .MuiSvgIcon-root { color: inherit !important; }
     `;
 
     const renderEventContent = (eventInfo: EventContentArg) => {
         const paciente = listaPacientes.find(p => p.id === Number(eventInfo.event.extendedProps.pacienteId));
         const nomePaciente = paciente ? paciente.nome : 'Paciente?';
-        const pendencia = eventInfo.event.extendedProps.pendenciaUnimed;
+
+        const isCancelado = eventInfo.event.extendedProps.status === 'Cancelado';
 
         return (
-            <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.75rem', p: '2px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <Box sx={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: '0.75rem',
+                p: '2px',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                textDecoration: isCancelado ? 'line-through' : 'none'
+            }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <b>{eventInfo.timeText}</b>
-                    {pendencia && <Tooltip title="Pendência Unimed"><WarningAmberIcon sx={{ fontSize: '1rem', marginLeft: '4px' }} /></Tooltip>}
                 </Box>
                 <span>{nomePaciente}</span>
             </Box>
@@ -304,6 +372,17 @@ export const AgendamentosPage = () => {
     return (
         <>
             <style>{estilosCalendario}</style>
+
+            <ConfirmDialog
+                open={dialogState.open}
+                title={dialogState.title}
+                message={dialogState.message}
+                onConfirm={dialogState.onConfirm}
+                onClose={closeDialog}
+                isAlert={dialogState.isAlert}
+            />
+
+
             <Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Typography variant="h4" component="h1">Painel de Agendamentos</Typography>
@@ -318,19 +397,17 @@ export const AgendamentosPage = () => {
                             <FullCalendar
                                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                                 initialView="dayGridMonth"
-                                headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }}
+                                headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
                                 events={agendamentosFiltrados.map(ag => ({
                                     id: ag.id,
                                     title: ag.title,
                                     start: ag.start,
                                     end: ag.end,
-                                    backgroundColor: ag.backgroundColor,
-                                    borderColor: ag.borderColor,
+                                    classNames: ag.classNames,
                                     extendedProps: {
                                         status: ag.status,
                                         pacienteId: ag.pacienteId,
                                         profissionalId: ag.profissionalId,
-                                        pendenciaUnimed: ag.pendenciaUnimed,
                                     }
                                 }))}
                                 eventContent={renderEventContent}
@@ -341,6 +418,7 @@ export const AgendamentosPage = () => {
                                 eventClick={handleEventClick}
                                 eventDrop={handleEventDrop}
                                 dayMaxEvents={true}
+                                moreLinkContent={<MoreHorizIcon fontSize="small" />}
                                 height="75vh"
                                 eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
                             />
@@ -405,6 +483,7 @@ export const AgendamentosPage = () => {
                     onClose={handleClosePopover}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                    sx={{ zIndex: 9999 }}
                 >
                     <List dense>
                         <ListItemButton onClick={handleEditarDoPopover}>

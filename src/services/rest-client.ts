@@ -14,14 +14,22 @@ const getAuthHeaders = (): HeadersInit => ({
   'Content-Type': 'application/json',
 });
 
-/**
- * Handles API response, parsing JSON or text based on content type
- * @throws Error with message from backend or status text
- */
+export class ApiError extends Error {
+  status: number;
+  data?: any;
+
+  constructor(status: number, message: string, data?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.message || `Erro na requisição: ${response.statusText}`);
+    throw new ApiError(response.status, data.message || `Erro na requisição: ${response.statusText}`, data);
   }
 
   const contentType = response.headers.get("content-type");
@@ -225,6 +233,13 @@ export const patientsService = {
    */
   createHistory: (id: number | string, data: Record<string, unknown>) =>
     api.post(`/patients/${id}/medical-record`, data),
+
+  /**
+   * PATCH /patients/:id/medical-record/:eventId - Update medical record entry
+   * Used by: ProntuarioPage (HistoricoFormModal edit mode)
+   */
+  updateHistory: (patientId: number | string, eventId: number | string, data: Record<string, unknown>) =>
+    api.patch(`/patients/${patientId}/medical-record/${eventId}`, data),
 
   /**
    * DELETE /patients/:id/medical-record/:eventId - Delete medical record entry

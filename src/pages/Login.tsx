@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 // Material-UI
@@ -14,6 +14,11 @@ import Paper from '@mui/material/Paper';
 import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogActions from '@mui/material/DialogActions';
 import { useTheme } from '@mui/material/styles';
 
 // Ícones
@@ -21,7 +26,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
 // Ativos (Certifique-se de que estes arquivos existem na pasta 'public')
-const VIDEO_URL = '/video_ame.mp4'; 
+const VIDEO_URL = '/video_ame.mp4';
 const LOGO_URL = '/logo_ame.jpeg';
 
 export const Login = () => {
@@ -35,6 +40,7 @@ export const Login = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
   const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -47,12 +53,12 @@ export const Login = () => {
 
     // Validação básica local
     if (!email || !email.includes('@')) {
-        setError("Por favor, insira um endereço de e-mail válido.");
-        return;
+      setError("Por favor, insira um endereço de e-mail válido.");
+      return;
     }
     if (!password) {
-        setError("Por favor, insira a sua senha.");
-        return;
+      setError("Por favor, insira a sua senha.");
+      return;
     }
 
     setIsSubmitting(true);
@@ -72,48 +78,48 @@ export const Login = () => {
   };
 
   return (
-    <Box 
-      component="main" 
-      sx={{ 
+    <Box
+      component="main"
+      sx={{
         height: '100vh',
         display: 'flex',
         flexDirection: { xs: 'column', sm: 'row' }
       }}
     >
       {/* Coluna do Vídeo (Esquerda) */}
-      <Box 
-        sx={{ 
-          display: { xs: 'none', sm: 'block' }, 
-          flexBasis: { sm: '33.33%', md: '58.33%' }, 
-          flexGrow: 1, 
-          overflow: 'hidden', 
+      <Box
+        sx={{
+          display: { xs: 'none', sm: 'block' },
+          flexBasis: { sm: '33.33%', md: '58.33%' },
+          flexGrow: 1,
+          overflow: 'hidden',
           position: 'relative',
           backgroundColor: 'black' // Fundo preto caso o vídeo demore a carregar
         }}
       >
         <video
-            autoPlay
-            loop
-            muted
-            style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-            }}
+          autoPlay
+          loop
+          muted
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+          }}
         >
-            <source src={VIDEO_URL} type="video/mp4" />
+          <source src={VIDEO_URL} type="video/mp4" />
         </video>
         {/* Overlay opcional para escurecer o vídeo e destacar o formulário */}
         <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)' }} />
       </Box>
-      
+
       {/* Coluna do Formulário (Direita) */}
       <Box component={Paper} elevation={6} square sx={{ flexBasis: { xs: '100%', sm: '66.67%', md: '41.67%' }, flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <Box sx={{ maxWidth: '450px', my: 8, mx: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-          
+
           <Box
             component="img"
             sx={{
@@ -128,54 +134,54 @@ export const Login = () => {
             alt="Logo Clínica AME"
             src={LOGO_URL}
           />
-          
+
           <Typography component="h1" variant="h5" sx={{ mt: 2, fontWeight: 'bold' }}>
             Bem-vindo à Clínica AME
           </Typography>
-          
+
           <Box component="form" noValidate onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
-            <TextField 
-                margin="normal" 
-                required fullWidth 
-                id="email" 
-                label="Endereço de E-mail" 
-                name="email" 
-                autoComplete="email" 
-                autoFocus 
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
-                disabled={isSubmitting} 
+            <TextField
+              margin="normal"
+              required fullWidth
+              id="email"
+              label="Endereço de E-mail"
+              name="email"
+              autoComplete="email"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isSubmitting}
             />
-            <TextField 
-                margin="normal" 
-                required fullWidth 
-                name="password" 
-                label="Senha" 
-                type={showPassword ? 'text' : 'password'} 
-                id="password" 
-                autoComplete="current-password" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                disabled={isSubmitting} 
-                InputProps={{ 
-                    endAdornment: ( 
-                        <InputAdornment position="end"> 
-                            <IconButton aria-label="toggle password visibility" onClick={handleClickShowPassword} onMouseDown={handleMouseDownPassword} edge="end"> 
-                                {showPassword ? <VisibilityOff /> : <Visibility />} 
-                            </IconButton> 
-                        </InputAdornment> 
-                    ), 
-                }} 
+            <TextField
+              margin="normal"
+              required fullWidth
+              name="password"
+              label="Senha"
+              type={showPassword ? 'text' : 'password'}
+              id="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isSubmitting}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton aria-label="toggle password visibility" onClick={handleClickShowPassword} onMouseDown={handleMouseDownPassword} edge="end">
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
-            <FormControlLabel 
-                control={ <Checkbox value="remember" color="primary" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} /> } 
-                label="Lembrar de mim" 
+            <FormControlLabel
+              control={<Checkbox value="remember" color="primary" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />}
+              label="Lembrar de mim"
             />
 
-            {error && ( 
-                <Typography color="error" variant="body2" sx={{ width: '100%', textAlign: 'center', mt: 1, fontWeight: 'bold' }}> 
-                    {error} 
-                </Typography> 
+            {error && (
+              <Typography color="error" variant="body2" sx={{ width: '100%', textAlign: 'center', mt: 1, fontWeight: 'bold' }}>
+                {error}
+              </Typography>
             )}
 
             <Button
@@ -187,15 +193,43 @@ export const Login = () => {
             >
               {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Entrar'}
             </Button>
-            
+
             <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-              <Link component={RouterLink} to="/forgot-password" variant="body2" underline="hover">
+              <Link
+                component="button"
+                type="button"
+                variant="body2"
+                underline="hover"
+                onClick={() => setForgotPasswordOpen(true)}
+              >
                 Esqueci minha senha
               </Link>
             </Box>
           </Box>
         </Box>
       </Box>
+
+      {/* Dialog para "Esqueci minha senha" */}
+      <Dialog
+        open={forgotPasswordOpen}
+        onClose={() => setForgotPasswordOpen(false)}
+        aria-labelledby="forgot-password-dialog-title"
+      >
+        <DialogTitle id="forgot-password-dialog-title">
+          Recuperação de Senha
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Para redefinir sua senha, entre em contato com um administrador do sistema.
+            Ele poderá alterar sua senha através do painel de gerenciamento de usuários.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setForgotPasswordOpen(false)} variant="contained">
+            Entendi
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

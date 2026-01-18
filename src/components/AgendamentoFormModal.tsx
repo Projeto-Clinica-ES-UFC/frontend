@@ -9,8 +9,6 @@ import Box from '@mui/material/Box';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Autocomplete from '@mui/material/Autocomplete';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Checkbox from '@mui/material/Checkbox';
 
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -30,7 +28,6 @@ interface IEvento {
     status: string;
     pacienteId: number | null;
     profissionalId: number | null;
-    pendenciaUnimed?: boolean;
 }
 
 // Props do Modal
@@ -49,7 +46,6 @@ export const AgendamentoFormModal = ({ open, onClose, onSave, eventoParaEditar, 
     const [start, setStart] = useState<Date | null>(null);
     const [end, setEnd] = useState<Date | null>(null);
     const [status, setStatus] = useState('Pendente');
-    const [pendenciaUnimed, setPendenciaUnimed] = useState(false);
     const [pacienteId, setPacienteId] = useState<number | ''>('');
     const [profissionalId, setProfissionalId] = useState<number | ''>('');
 
@@ -61,7 +57,6 @@ export const AgendamentoFormModal = ({ open, onClose, onSave, eventoParaEditar, 
             setStatus(eventoParaEditar.status);
             setPacienteId(eventoParaEditar.pacienteId || '');
             setProfissionalId(eventoParaEditar.profissionalId || '');
-            setPendenciaUnimed(eventoParaEditar.pendenciaUnimed || false);
 
         } else {
             setStart(dataSelecionada ? new Date(dataSelecionada) : new Date());
@@ -69,7 +64,6 @@ export const AgendamentoFormModal = ({ open, onClose, onSave, eventoParaEditar, 
             setStatus('Pendente');
             setPacienteId('');
             setProfissionalId('');
-            setPendenciaUnimed(false);
         }
     }, [eventoParaEditar, dataSelecionada, open]);
 
@@ -79,14 +73,19 @@ export const AgendamentoFormModal = ({ open, onClose, onSave, eventoParaEditar, 
             return;
         }
 
+        // Se data final não for informada, assume 30 minutos após o início
+        let dataFinal = end;
+        if (!dataFinal) {
+            dataFinal = new Date(start.getTime() + 30 * 60000);
+        }
+
         const eventoData = {
             id: eventoParaEditar?.id,
             start: start.toISOString(),
-            end: end ? end.toISOString() : undefined,
+            end: dataFinal.toISOString(),
             status,
             pacienteId: Number(pacienteId) || null,
             profissionalId: Number(profissionalId) || null,
-            pendenciaUnimed,
         };
         onSave(eventoData);
     };
@@ -178,18 +177,6 @@ export const AgendamentoFormModal = ({ open, onClose, onSave, eventoParaEditar, 
                             <MenuItem value="Cancelado">Cancelado</MenuItem>
                         </TextField>
                     </FormControl>
-
-                    <FormControlLabel
-                        control={
-                            <Checkbox
-                                checked={pendenciaUnimed}
-                                onChange={(e) => setPendenciaUnimed(e.target.checked)}
-                                name="pendenciaUnimed"
-                                color="warning"
-                            />
-                        }
-                        label="Pendência Unimed"
-                    />
 
                 </Box>
             </DialogContent>

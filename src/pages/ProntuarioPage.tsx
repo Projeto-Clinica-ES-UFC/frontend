@@ -8,6 +8,11 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 
 // Importações para a Timeline do @mui/lab
 import Timeline from '@mui/lab/Timeline';
@@ -30,7 +35,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 
 // Modal
-import { HistoricoFormModal } from '../components/HistoricoFormModal';
+import { HistoricoFormModal, type IHistoricoEventoEdit } from '../components/HistoricoFormModal';
 
 // Interfaces (Alinhadas com o Backend)
 interface IPaciente {
@@ -98,6 +103,7 @@ export const ProntuarioPage = () => {
     const [historico, setHistorico] = useState<IHistoricoEvento[]>([]);
     const [loading, setLoading] = useState(true);
     const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
+    const [eventoParaEditar, setEventoParaEditar] = useState<IHistoricoEventoEdit | null>(null);
 
     // Filtros
     const [filtroDataInicio, setFiltroDataInicio] = useState('');
@@ -148,20 +154,26 @@ export const ProntuarioPage = () => {
         carregarProntuario();
     }, [pacienteId]);
 
-    // 2. Salvar Novo Registro (POST)
-    const handleSalvarHistorico = async (eventoData: IHistoricoEventoForm, targetPacienteId: number) => {
+    // 2. Salvar ou Atualizar Registro
+    const handleSalvarHistorico = async (eventoData: IHistoricoEventoForm, targetPacienteId: number, eventoId?: number) => {
         if (!paciente || paciente.id !== targetPacienteId) return;
 
         try {
             // Map frontend PT-BR fields to backend EN fields
             const payload = {
-                date: eventoData.data + 'T00:00:00.000Z', // Convert YYYY-MM-DD to ISO datetime
+                date: eventoData.data + 'T00:00:00.000Z',
                 type: tipoToType[eventoData.tipo] || 'Observation',
                 title: eventoData.titulo,
                 description: eventoData.descricao,
             };
 
-            await patientsService.createHistory(targetPacienteId, payload);
+            if (eventoId) {
+                // Update existing record
+                await patientsService.updateHistory(targetPacienteId, eventoId, payload);
+            } else {
+                // Create new record
+                await patientsService.createHistory(targetPacienteId, payload);
+            }
 
             // Reload the list
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -172,6 +184,7 @@ export const ProntuarioPage = () => {
                 setHistorico(mapped.sort((a: IHistoricoEvento, b: IHistoricoEvento) => new Date(b.data).getTime() - new Date(a.data).getTime()));
             }
             setIsHistoricoModalOpen(false);
+            setEventoParaEditar(null);
 
         } catch (error) {
             console.error("Erro ao salvar:", error);
@@ -179,19 +192,34 @@ export const ProntuarioPage = () => {
         }
     };
 
-    // 3. Editar Registro (placeholder - opens modal for edit)
-    const handleEditarHistorico = (_evento: IHistoricoEvento) => {
-        // TODO: Implement edit modal - for now just alert
-        alert("Funcionalidade de edição será implementada em breve.");
+    // 3. Editar Registro (abre modal com dados preenchidos)
+    const handleEditarHistorico = (evento: IHistoricoEvento) => {
+        setEventoParaEditar({
+            id: evento.id,
+            data: evento.data,
+            tipo: evento.tipo,
+            titulo: evento.titulo,
+            descricao: evento.descricao,
+        });
+        setIsHistoricoModalOpen(true);
     };
 
-    // 4. Apagar Registro (DELETE)
-    const handleApagarHistorico = async (eventoId: number) => {
-        if (!paciente) return;
-        if (!window.confirm("Deseja realmente apagar este registro?")) return;
+    // State for delete confirmation dialog
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+
+    // 4. Apagar Registro (Open Dialog)
+    const handleApagarHistorico = (eventoId: number) => {
+        setItemToDelete(eventoId);
+        setDeleteDialogOpen(true);
+    };
+
+    // Confirm Delete Action
+    const confirmarApagarHistorico = async () => {
+        if (!paciente || !itemToDelete) return;
 
         try {
-            await patientsService.deleteHistory(paciente.id, eventoId);
+            await patientsService.deleteHistory(paciente.id, itemToDelete);
             // Reload the list
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const response: any = await patientsService.getHistory(paciente.id);
@@ -203,6 +231,9 @@ export const ProntuarioPage = () => {
         } catch (error) {
             console.error("Erro ao apagar:", error);
             alert("Erro ao apagar registro.");
+        } finally {
+            setDeleteDialogOpen(false);
+            setItemToDelete(null);
         }
     };
 
@@ -323,11 +354,31 @@ export const ProntuarioPage = () => {
                 {paciente && (
                     <HistoricoFormModal
                         open={isHistoricoModalOpen}
-                        onClose={() => setIsHistoricoModalOpen(false)}
+                        onClose={() => { setIsHistoricoModalOpen(false); setEventoParaEditar(null); }}
                         onSave={handleSalvarHistorico}
                         pacienteId={paciente.id}
+                        eventoParaEditar={eventoParaEditar}
                     />
                 )}
+
+                {/* Delete Confirmation Dialog */}
+                <Dialog
+                    open={deleteDialogOpen}
+                    onClose={() => setDeleteDialogOpen(false)}
+                >
+                    <DialogTitle>Confirmar Exclusão</DialogTitle>
+                    <DialogContent>
+                        <DialogContentText>
+                            Deseja realmente apagar este registro do histórico? Esta ação não pode ser desfeita.
+                        </DialogContentText>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
+                        <Button onClick={confirmarApagarHistorico} color="error" autoFocus>
+                            Apagar
+                        </Button>
+                    </DialogActions>
+                </Dialog>
 
             </Box>
         </React.Fragment>

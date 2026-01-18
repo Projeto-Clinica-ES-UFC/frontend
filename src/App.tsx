@@ -4,7 +4,7 @@ import { Login } from './pages/Login';
 import { PacientesPage } from './pages/PacientesPage';
 import { ProntuarioPage } from './pages/ProntuarioPage';
 import { AgendamentosPage } from './pages/AgendamentosPage';
-import { AgendaProfissionalPage } from './pages/AgendaProfissionalPage';
+
 // Financeiro e Relatórios removidos
 
 import { MeuPerfilPage } from './pages/MeuPerfilPage';
@@ -40,7 +40,7 @@ function App() {
 
         <Route path="/agendamentos" element={<AgendamentosPage />} />
 
-        <Route path="/agenda-profissional" element={<AgendaProfissionalPage />} />
+
 
         {/* Financeiro removido */}
 

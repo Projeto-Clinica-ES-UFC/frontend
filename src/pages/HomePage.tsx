@@ -83,8 +83,10 @@ export const HomePage = () => {
 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const dataPac = (dataPacResponse as any).data || dataPacResponse;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const dataAgList = (dataAg as any).data || dataAg;
 
-                if (Array.isArray(dataAg)) setAgendamentos(dataAg);
+                if (Array.isArray(dataAgList)) setAgendamentos(dataAgList);
                 if (Array.isArray(dataPac)) setPacientes(dataPac);
 
             } catch (error) {
@@ -205,16 +207,7 @@ export const HomePage = () => {
                     </Paper>
                 </Box>
 
-                {/* Metas (Estático - Visual) */}
-                <Box sx={{ flexBasis: { xs: '100%', md: 'calc(50% - 12px)' }, flexGrow: 1 }}>
-                    <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
-                        <Typography variant="h6" gutterBottom> Metas do Mês </Typography>
-                        <List dense>
-                            <ListItem><ListItemText primary="- Atingir 80 atendimentos" /></ListItem>
-                            <ListItem><ListItemText primary="- Manter taxa de ocupação > 90%" /></ListItem>
-                        </List>
-                    </Paper>
-                </Box>
+
 
                 {/* Próximos Agendamentos (Dinâmico) */}
                 <Box sx={{ flexBasis: { xs: '100%', md: 'calc(50% - 12px)' }, flexGrow: 1 }}>

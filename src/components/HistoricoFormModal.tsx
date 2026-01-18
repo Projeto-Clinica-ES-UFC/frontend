@@ -11,39 +11,61 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 
-// A "forma" de um evento do histórico (simplificada para o formulário)
-interface IHistoricoEventoForm {
+// Tipo para os dados do formulário
+export interface IHistoricoEventoForm {
     data: string;
     tipo: 'Consulta' | 'Avaliação' | 'Observação';
     titulo: string;
     descricao?: string;
 }
 
+// Dados iniciais para modo de edição
+export interface IHistoricoEventoEdit extends IHistoricoEventoForm {
+    id: number;
+}
+
 // Propriedades do Modal
 interface HistoricoFormModalProps {
     open: boolean;
     onClose: () => void;
-    // A função onSave recebe os dados do formulário e o ID do paciente
-    onSave: (eventoData: IHistoricoEventoForm, pacienteId: number) => void;
-    pacienteId: number; // Precisamos de saber a qual paciente adicionar
+    onSave: (eventoData: IHistoricoEventoForm, pacienteId: number, eventoId?: number) => void;
+    pacienteId: number;
+    eventoParaEditar?: IHistoricoEventoEdit | null; // Se presente, modo de edição
 }
 
-export const HistoricoFormModal = ({ open, onClose, onSave, pacienteId }: HistoricoFormModalProps) => {
+export const HistoricoFormModal = ({
+    open,
+    onClose,
+    onSave,
+    pacienteId,
+    eventoParaEditar
+}: HistoricoFormModalProps) => {
     // Estados para o formulário
-    const [data, setData] = useState(new Date().toISOString().split('T')[0]); // Data atual por defeito (YYYY-MM-DD)
+    const [data, setData] = useState(new Date().toISOString().split('T')[0]);
     const [tipo, setTipo] = useState<'Consulta' | 'Avaliação' | 'Observação'>('Consulta');
     const [titulo, setTitulo] = useState('');
     const [descricao, setDescricao] = useState('');
 
-    // Limpa o formulário sempre que o modal abre
+    const isEditMode = !!eventoParaEditar;
+
+    // Preenche o formulário quando abrir (criar ou editar)
     useEffect(() => {
         if (open) {
-            setData(new Date().toISOString().split('T')[0]);
-            setTipo('Consulta');
-            setTitulo('');
-            setDescricao('');
+            if (eventoParaEditar) {
+                // Modo edição - preenche com dados existentes
+                setData(eventoParaEditar.data);
+                setTipo(eventoParaEditar.tipo);
+                setTitulo(eventoParaEditar.titulo);
+                setDescricao(eventoParaEditar.descricao || '');
+            } else {
+                // Modo criação - limpa formulário
+                setData(new Date().toISOString().split('T')[0]);
+                setTipo('Consulta');
+                setTitulo('');
+                setDescricao('');
+            }
         }
-    }, [open]);
+    }, [open, eventoParaEditar]);
 
     const handleSave = () => {
         const eventoData: IHistoricoEventoForm = {
@@ -52,12 +74,15 @@ export const HistoricoFormModal = ({ open, onClose, onSave, pacienteId }: Histor
             titulo,
             descricao,
         };
-        onSave(eventoData, pacienteId);
+        onSave(eventoData, pacienteId, eventoParaEditar?.id);
+        onClose();
     };
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-            <DialogTitle>Adicionar Registro ao Histórico</DialogTitle>
+            <DialogTitle>
+                {isEditMode ? 'Editar Registro' : 'Adicionar Registro ao Histórico'}
+            </DialogTitle>
             <DialogContent>
                 <Box component="form" noValidate autoComplete="off" sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <TextField
@@ -110,7 +135,9 @@ export const HistoricoFormModal = ({ open, onClose, onSave, pacienteId }: Histor
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose}>Cancelar</Button>
-                <Button onClick={handleSave} variant="contained" disabled={!titulo || !data}>Salvar Registro</Button>
+                <Button onClick={handleSave} variant="contained" disabled={!titulo || !data}>
+                    {isEditMode ? 'Salvar Alterações' : 'Salvar Registro'}
+                </Button>
             </DialogActions>
         </Dialog>
     );
