@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { Login } from './pages/Login';
 import { PacientesPage } from './pages/PacientesPage';
+import { ProfissionaisPage } from './pages/ProfissionaisPage';
 import { ProntuarioPage } from './pages/ProntuarioPage';
 import { AgendamentosPage } from './pages/AgendamentosPage';
 
@@ -37,6 +38,8 @@ function App() {
         <Route path="/pacientes" element={<PacientesPage />} />
 
         <Route path="/pacientes/:pacienteId/prontuario" element={<ProntuarioPage />} />
+
+        <Route path="/profissionais" element={<ProfissionaisPage />} />
 
         <Route path="/agendamentos" element={<AgendamentosPage />} />
 

@@ -6,8 +6,6 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
-import TextField from '@mui/material/TextField';
-import InputAdornment from '@mui/material/InputAdornment';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
@@ -17,7 +15,6 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { appointmentsService, patientsService, externalService } from '../services/rest-client';
 
 // Ícones
-import SearchIcon from '@mui/icons-material/Search';
 import PersonAddIcon from '@mui/icons-material/PersonAddAlt1';
 import EventIcon from '@mui/icons-material/Event';
 
@@ -76,8 +73,15 @@ export const HomePage = () => {
     useEffect(() => {
         const carregarDashboard = async () => {
             try {
+                const todayStart = new Date();
+                todayStart.setHours(0, 0, 0, 0);
+
                 const [dataAg, dataPacResponse] = await Promise.all([
-                    appointmentsService.getAll(),
+                    appointmentsService.getAll({
+                        startDate: todayStart.toISOString(),
+                        sort: 'asc',
+                        limit: '100'
+                    }),
                     patientsService.getAll()
                 ]);
 
@@ -157,14 +161,7 @@ export const HomePage = () => {
                     Bem-vindo, {user?.name || 'Usuário'}!
                 </Typography>
 
-                {/* Campo de Busca Visual (Futuramente pode redirecionar para Configurações > Pacientes) */}
-                <TextField
-                    size="small"
-                    placeholder="Pesquisar..."
-                    variant="outlined"
-                    InputProps={{ startAdornment: (<InputAdornment position="start"> <SearchIcon /> </InputAdornment>) }}
-                    sx={{ width: { xs: '100%', md: '300px' } }}
-                />
+
             </Box>
 
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>

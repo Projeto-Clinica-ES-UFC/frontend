@@ -5,7 +5,7 @@
  * All requests include credentials for session-based authentication.
  */
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = import.meta.env.VITE_API_URL || '';
 
 /**
  * Returns default headers for API requests

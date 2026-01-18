@@ -35,6 +35,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import HomeIcon from '@mui/icons-material/Home';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import PeopleIcon from '@mui/icons-material/People';
+import EngineeringIcon from '@mui/icons-material/Engineering';
 // AttachMoneyIcon e AssessmentIcon foram removidos
 
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -52,7 +53,7 @@ const navItems = [
   { text: 'Início', icon: <HomeIcon />, path: '/' },
   { text: 'Agendamentos', icon: <CalendarTodayIcon />, path: '/agendamentos' },
   { text: 'Pacientes', icon: <PeopleIcon />, path: '/pacientes' },
-
+  { text: 'Profissionais', icon: <EngineeringIcon />, path: '/profissionais' },
 ];
 
 export const Layout = () => {

@@ -8,6 +8,7 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   server: {
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
@@ -19,6 +20,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      // Proxying separate resource endpoints to backend
+      '/users': { target: 'http://localhost:3000', changeOrigin: true, secure: false },
+      '/patients': { target: 'http://localhost:3000', changeOrigin: true, secure: false },
+      '/appointments': { target: 'http://localhost:3000', changeOrigin: true, secure: false },
+      '/professionals': { target: 'http://localhost:3000', changeOrigin: true, secure: false },
     },
   },
 })
