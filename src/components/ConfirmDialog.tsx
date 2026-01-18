@@ -1,4 +1,4 @@
-import React from 'react';
+// React import removed due to unused variable error
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
