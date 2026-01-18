@@ -9,7 +9,7 @@ interface IUser {
   name: string;
   email: string;
   photoURL?: string;
-  perfil?: string; 
+  perfil?: string;
   image?: string;
   emailVerified?: boolean;
   createdAt?: Date;
@@ -46,10 +46,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         email: u.email,
         // Map better-auth 'image' to 'photoURL' for compatibility
         photoURL: u.image || undefined,
-        // Perfil might be missing in default session unless extended. 
-        // Preserving property for type compatibility.
+        // Role from custom field (defaults to Profissional if not set)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        perfil: (u as any).perfil || undefined 
+        perfil: (u as any).role || 'Profissional'
       } as IUser);
     } else {
       setUser(null);

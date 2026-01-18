@@ -26,7 +26,7 @@ import { UsuarioFormModal } from './UsuarioFormModal';
 
 // Interface
 interface IUsuario {
-    id: number;
+    id: number | string;
     nome: string;
     email: string;
     perfil: 'Administrador' | 'Recepcionista' | 'Profissional';
@@ -42,9 +42,16 @@ export const UsuariosPanel = () => {
     // 3. Buscar Usuários (GET)
     const carregarUsuarios = async () => {
         try {
-            const data = await usersService.getAll();
+            const data = await usersService.getAll() as Array<{ id: string; name: string; email: string; role?: string }>;
             if (Array.isArray(data)) {
-                setUsuarios(data);
+                // Map backend fields to frontend interface
+                const mappedUsers: IUsuario[] = data.map(u => ({
+                    id: u.id,
+                    nome: u.name,
+                    email: u.email,
+                    perfil: (u.role as IUsuario['perfil']) || 'Profissional'
+                }));
+                setUsuarios(mappedUsers);
             } else {
                 setUsuarios([]);
             }
@@ -74,7 +81,7 @@ export const UsuariosPanel = () => {
     };
 
     // 4. Salvar (Lógica Mista: Sign-Up vs Update)
-    const handleSalvarUsuario = async (dados: Omit<IUsuario, 'id'> & { id?: number, password?: string }) => {
+    const handleSalvarUsuario = async (dados: Omit<IUsuario, 'id'> & { id?: number | string, password?: string }) => {
         try {
             if (dados.id) {
                 // --- EDIÇÃO (PUT /users/:id) ---
@@ -117,7 +124,7 @@ export const UsuariosPanel = () => {
     };
 
     // 5. Apagar (DELETE)
-    const handleApagar = async (id: number) => {
+    const handleApagar = async (id: number | string) => {
         if (window.confirm('Tem a certeza que deseja excluir este usuário?')) {
             try {
                 await usersService.delete(id);

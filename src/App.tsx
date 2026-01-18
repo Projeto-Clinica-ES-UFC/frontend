@@ -8,7 +8,6 @@ import { AgendaProfissionalPage } from './pages/AgendaProfissionalPage';
 // Financeiro e Relatórios removidos
 
 import { MeuPerfilPage } from './pages/MeuPerfilPage';
-import { AnamnesePage } from './pages/AnamnesePage';
 import { ConfiguracoesPage } from './pages/ConfiguracoesPage';
 import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
@@ -38,8 +37,6 @@ function App() {
         <Route path="/pacientes" element={<PacientesPage />} />
 
         <Route path="/pacientes/:pacienteId/prontuario" element={<ProntuarioPage />} />
-
-        <Route path="/pacientes/:pacienteId/anamnese" element={<AnamnesePage />} />
 
         <Route path="/agendamentos" element={<AgendamentosPage />} />
 

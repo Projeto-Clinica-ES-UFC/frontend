@@ -11,7 +11,7 @@ import FormControl from '@mui/material/FormControl';
 
 // A "forma" de um usuário
 interface IUsuario {
-    id: number;
+    id: number | string;
     nome: string;
     email: string;
     perfil: 'Administrador' | 'Recepcionista' | 'Profissional';
@@ -21,7 +21,7 @@ interface IUsuario {
 interface UsuarioFormModalProps {
     open: boolean;
     onClose: () => void;
-    onSave: (usuario: Omit<IUsuario, 'id'> & { id?: number, password?: string }) => void;
+    onSave: (usuario: Omit<IUsuario, 'id'> & { id?: number | string, password?: string }) => void;
     usuarioParaEditar?: IUsuario | null;
 }
 
@@ -65,6 +65,7 @@ export const UsuarioFormModal = ({ open, onClose, onSave, usuarioParaEditar }: U
                     <TextField
                         autoFocus
                         id="nome"
+                        name="usuario-nome"
                         label="Nome Completo"
                         type="text"
                         fullWidth
@@ -72,9 +73,12 @@ export const UsuarioFormModal = ({ open, onClose, onSave, usuarioParaEditar }: U
                         value={nome}
                         onChange={(e) => setNome(e.target.value)}
                         required
+                        autoComplete="off"
+                        inputProps={{ autoComplete: 'new-password' }}
                     />
                     <TextField
                         id="email"
+                        name="usuario-email"
                         label="Email de Acesso"
                         type="email"
                         fullWidth
@@ -82,19 +86,24 @@ export const UsuarioFormModal = ({ open, onClose, onSave, usuarioParaEditar }: U
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
+                        autoComplete="off"
+                        inputProps={{ autoComplete: 'new-password' }}
                     />
-                    
+
                     {/* CAMPO DE SENHA (Obrigatório na criação, opcional na edição) */}
                     <TextField
                         id="senha"
+                        name="usuario-senha"
                         label={usuarioParaEditar ? "Nova Senha (deixe em branco para manter)" : "Senha"}
                         type="password"
                         fullWidth
                         variant="outlined"
                         value={senha}
                         onChange={(e) => setSenha(e.target.value)}
-                        required={!usuarioParaEditar} // Obrigatório se for novo
+                        required={!usuarioParaEditar}
                         helperText={!usuarioParaEditar ? "Mínimo de 8 caracteres" : ""}
+                        autoComplete="new-password"
+                        inputProps={{ autoComplete: 'new-password' }}
                     />
 
                     <FormControl fullWidth>

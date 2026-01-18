@@ -226,21 +226,12 @@ export const patientsService = {
   createHistory: (id: number | string, data: Record<string, unknown>) =>
     api.post(`/patients/${id}/medical-record`, data),
 
-  // --- Anamnesis Sub-routes ---
-
   /**
-   * GET /patients/:id/anamnesis - Get patient's latest anamnesis
-   * Used by: AnamnesePage
+   * DELETE /patients/:id/medical-record/:eventId - Delete medical record entry
+   * Used by: ProntuarioPage
    */
-  getAnamnesis: (id: number | string) => api.get(`/patients/${id}/anamnesis`),
-
-  /**
-   * PUT /patients/:id/anamnesis - Save/upsert anamnesis data
-   * Used by: AnamnesePage
-   * @param data - Anamnesis form data (stored as JSON)
-   */
-  saveAnamnesis: (id: number | string, data: Record<string, unknown>) =>
-    api.put(`/patients/${id}/anamnesis`, data),
+  deleteHistory: (patientId: number | string, eventId: number | string) =>
+    api.delete(`/patients/${patientId}/medical-record/${eventId}`),
 };
 
 // =============================================================================

@@ -6,6 +6,7 @@ import Tab from '@mui/material/Tab';
 import Paper from '@mui/material/Paper';
 import { UsuariosPanel } from '../components/UsuariosPanel';
 import { PacientesPanel } from '../components/PacientesPanel';
+import { useAuth } from '../contexts/AuthContext';
 
 // Ícones para as abas
 import PeopleIcon from '@mui/icons-material/People';
@@ -39,6 +40,10 @@ const TabPanel = (props: { children?: React.ReactNode; index: number; value: num
 
 export const ConfiguracoesPage = () => {
     const [abaAtiva, setAbaAtiva] = useState(0); // A primeira aba (índice 0) começa ativa
+    const { user } = useAuth();
+
+    // Check if user is Administrador
+    const isAdmin = user?.perfil === 'Administrador';
 
     // A variável 'event' foi renomeada para '_event' para corrigir o aviso de não utilizada
     const handleChangeAba = (_event: React.SyntheticEvent, novaAba: number) => {
@@ -62,7 +67,7 @@ export const ConfiguracoesPage = () => {
                     >
                         <Tab icon={<PeopleIcon />} iconPosition="start" label="Pacientes" />
                         <Tab icon={<WorkIcon />} iconPosition="start" label="Profissionais" />
-                        <Tab icon={<AccountCircleIcon />} iconPosition="start" label="Usuários" />
+                        {isAdmin && <Tab icon={<AccountCircleIcon />} iconPosition="start" label="Usuários" />}
 
                     </Tabs>
                 </Box>
@@ -75,9 +80,11 @@ export const ConfiguracoesPage = () => {
                     {/* O nosso novo componente de gestão de profissionais é renderizado aqui */}
                     <ProfissionaisPanel />
                 </TabPanel>
-                <TabPanel value={abaAtiva} index={2}>
-                    <UsuariosPanel />
-                </TabPanel>
+                {isAdmin && (
+                    <TabPanel value={abaAtiva} index={2}>
+                        <UsuariosPanel />
+                    </TabPanel>
+                )}
 
 
             </Paper>

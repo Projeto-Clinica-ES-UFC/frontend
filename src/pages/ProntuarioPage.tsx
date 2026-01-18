@@ -24,10 +24,10 @@ import { patientsService } from '../services/rest-client';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EventIcon from '@mui/icons-material/Event';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import AttachFileIcon from '@mui/icons-material/AttachFile';
 import AddIcon from '@mui/icons-material/Add';
-import ClearIcon from '@mui/icons-material/Clear';
-import ArticleIcon from '@mui/icons-material/Article';
+import NoteIcon from '@mui/icons-material/Note';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/DeleteOutline';
 
 // Modal
 import { HistoricoFormModal } from '../components/HistoricoFormModal';
@@ -44,29 +44,50 @@ interface IPaciente {
 interface IHistoricoEvento {
     id: number;
     data: string; // YYYY-MM-DD
-    tipo: 'Consulta' | 'Avaliação' | 'Anexo' | 'Observação';
+    tipo: 'Consulta' | 'Avaliação' | 'Observação';
     titulo: string;
     descricao?: string;
-    anexoUrl?: string; // URL retornada do backend se houver upload
-    anexoNome?: string;
 }
 
 interface IHistoricoEventoForm {
     data: string;
-    tipo: 'Consulta' | 'Avaliação' | 'Anexo' | 'Observação';
+    tipo: 'Consulta' | 'Avaliação' | 'Observação';
     titulo: string;
     descricao?: string;
-    anexo?: File | null;
 }
 
 const getTimelineIcon = (tipo: IHistoricoEvento['tipo']) => {
     switch (tipo) {
         case 'Consulta': return <EventIcon />;
         case 'Avaliação': return <AssignmentIcon />;
-        case 'Anexo': return <AttachFileIcon />;
-        default: return <Typography variant="caption">●</Typography>;
+        case 'Observação': return <NoteIcon />;
+        default: return <NoteIcon />;
     }
 };
+
+// Mapping helpers for backend EN <-> frontend PT-BR
+const tipoToType: Record<string, string> = {
+    'Consulta': 'Consultation',
+    'Avaliação': 'Evaluation',
+    'Observação': 'Observation',
+};
+
+const typeToTipo: Record<string, IHistoricoEvento['tipo']> = {
+    'Consultation': 'Consulta',
+    'Evaluation': 'Avaliação',
+    'Observation': 'Observação',
+};
+
+// Map backend response to frontend interface
+const mapBackendToFrontend = (record: Record<string, unknown>): IHistoricoEvento => ({
+    id: record.id as number,
+    data: typeof record.date === 'string'
+        ? record.date.split('T')[0]
+        : new Date(record.date as number).toISOString().split('T')[0],
+    tipo: typeToTipo[record.type as string] || 'Observação',
+    titulo: record.title as string,
+    descricao: record.description as string | undefined,
+});
 
 export const ProntuarioPage = () => {
     const { pacienteId } = useParams<{ pacienteId: string }>();
@@ -96,8 +117,8 @@ export const ProntuarioPage = () => {
                     setPaciente({
                         id: resPac.id,
                         nome: resPac.name || resPac.nome,
-                        dataNascimento: resPac.birthDate || resPac.dataNascimento,
-                        nomeResponsavel: resPac.guardianName || resPac.nomeResponsavel,
+                        dataNascimento: resPac.dateOfBirth || resPac.birthDate || resPac.dataNascimento,
+                        nomeResponsavel: resPac.responsibleName || resPac.guardianName || resPac.nomeResponsavel,
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         sexo: (resPac.gender || resPac.sexo) as any
                     });
@@ -107,10 +128,12 @@ export const ProntuarioPage = () => {
 
                 // Busca Histórico (Timeline)
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const dadosHist: any = await patientsService.getHistory(pacienteId);
+                const response: any = await patientsService.getHistory(pacienteId);
+                const dadosHist = Array.isArray(response) ? response : (response?.data || []);
                 if (Array.isArray(dadosHist)) {
-                    // Ordena por data (mais recente primeiro)
-                    setHistorico(dadosHist.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()));
+                    // Map backend fields to frontend and sort by date
+                    const mapped = dadosHist.map(mapBackendToFrontend);
+                    setHistorico(mapped.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()));
                 } else {
                     setHistorico([]);
                 }
@@ -130,29 +153,56 @@ export const ProntuarioPage = () => {
         if (!paciente || paciente.id !== targetPacienteId) return;
 
         try {
-            // Nota: Se fosse enviar arquivo real, usaríamos FormData. 
-            // Aqui enviamos JSON com os metadados do evento.
+            // Map frontend PT-BR fields to backend EN fields
             const payload = {
-                data: eventoData.data,
-                tipo: eventoData.tipo,
-                titulo: eventoData.titulo,
-                descricao: eventoData.descricao,
-                // anexoNome: eventoData.anexo?.name // Opcional, se o backend suportar salvar nome sem arquivo
+                date: eventoData.data + 'T00:00:00.000Z', // Convert YYYY-MM-DD to ISO datetime
+                type: tipoToType[eventoData.tipo] || 'Observation',
+                title: eventoData.titulo,
+                description: eventoData.descricao,
             };
 
             await patientsService.createHistory(targetPacienteId, payload);
 
-            // Recarrega a lista para mostrar o novo item
+            // Reload the list
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const dadosHist: any = await patientsService.getHistory(targetPacienteId);
+            const response: any = await patientsService.getHistory(targetPacienteId);
+            const dadosHist = Array.isArray(response) ? response : (response?.data || []);
             if (Array.isArray(dadosHist)) {
-                setHistorico(dadosHist.sort((a: IHistoricoEvento, b: IHistoricoEvento) => new Date(b.data).getTime() - new Date(a.data).getTime()));
+                const mapped = dadosHist.map(mapBackendToFrontend);
+                setHistorico(mapped.sort((a: IHistoricoEvento, b: IHistoricoEvento) => new Date(b.data).getTime() - new Date(a.data).getTime()));
             }
             setIsHistoricoModalOpen(false);
 
         } catch (error) {
             console.error("Erro ao salvar:", error);
             alert("Erro ao salvar registro no histórico.");
+        }
+    };
+
+    // 3. Editar Registro (placeholder - opens modal for edit)
+    const handleEditarHistorico = (_evento: IHistoricoEvento) => {
+        // TODO: Implement edit modal - for now just alert
+        alert("Funcionalidade de edição será implementada em breve.");
+    };
+
+    // 4. Apagar Registro (DELETE)
+    const handleApagarHistorico = async (eventoId: number) => {
+        if (!paciente) return;
+        if (!window.confirm("Deseja realmente apagar este registro?")) return;
+
+        try {
+            await patientsService.deleteHistory(paciente.id, eventoId);
+            // Reload the list
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const response: any = await patientsService.getHistory(paciente.id);
+            const dadosHist = Array.isArray(response) ? response : (response?.data || []);
+            if (Array.isArray(dadosHist)) {
+                const mapped = dadosHist.map(mapBackendToFrontend);
+                setHistorico(mapped.sort((a: IHistoricoEvento, b: IHistoricoEvento) => new Date(b.data).getTime() - new Date(a.data).getTime()));
+            }
+        } catch (error) {
+            console.error("Erro ao apagar:", error);
+            alert("Erro ao apagar registro.");
         }
     };
 
@@ -198,19 +248,8 @@ export const ProntuarioPage = () => {
 
                 <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
                     <Typography variant="h6" gutterBottom>Informações do Paciente</Typography>
-                    <Typography><strong>Data Nasc.:</strong> {formatDateBR(paciente.dataNascimento)}</Typography>
+                    <Typography><strong>Data de Nascimento:</strong> {formatDateBR(paciente.dataNascimento)}</Typography>
                     <Typography><strong>Responsável:</strong> {paciente.nomeResponsavel}</Typography>
-
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<ArticleIcon />}
-                        component={RouterLink}
-                        to={`/pacientes/${paciente.id}/anamnese`}
-                        sx={{ mt: 2 }}
-                    >
-                        Ver / Editar Anamnese
-                    </Button>
                 </Paper>
 
                 <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
@@ -229,13 +268,6 @@ export const ProntuarioPage = () => {
                             sx={{ width: { xs: 'calc(50% - 16px)', sm: 150 } }}
                             value={filtroDataFim} onChange={(e) => setFiltroDataFim(e.target.value)}
                         />
-                        <Button
-                            size="small" startIcon={<ClearIcon />}
-                            onClick={() => { setFiltroDataInicio(''); setFiltroDataFim(''); }}
-                            disabled={!filtroDataInicio && !filtroDataFim}
-                        >
-                            Limpar
-                        </Button>
                     </Box>
                     <Button variant="contained" startIcon={<AddIcon />} onClick={() => setIsHistoricoModalOpen(true)}>
                         Adicionar Registro
@@ -251,29 +283,32 @@ export const ProntuarioPage = () => {
                                 </TimelineOppositeContent>
                                 <TimelineSeparator>
                                     {index > 0 && <TimelineConnector />}
-                                    <TimelineDot color={evento.tipo === 'Anexo' ? 'secondary' : 'primary'}>
+                                    <TimelineDot color="primary">
                                         {getTimelineIcon(evento.tipo)}
                                     </TimelineDot>
                                     {index < historicoFiltrado.length - 1 && <TimelineConnector />}
                                 </TimelineSeparator>
                                 <TimelineContent sx={{ py: '12px', px: 2 }}>
                                     <Paper elevation={3} sx={{ p: 2 }}>
-                                        <Typography variant="h6" component="span">
-                                            {evento.titulo}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 1 }}>
-                                            ({evento.tipo})
-                                        </Typography>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Box>
+                                                <Typography variant="h6" component="span">
+                                                    {evento.titulo}
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 1 }}>
+                                                    ({evento.tipo})
+                                                </Typography>
+                                            </Box>
+                                            <Box>
+                                                <IconButton size="small" onClick={() => handleEditarHistorico(evento)} title="Editar">
+                                                    <EditIcon fontSize="small" />
+                                                </IconButton>
+                                                <IconButton size="small" onClick={() => handleApagarHistorico(evento.id)} title="Apagar" color="error">
+                                                    <DeleteIcon fontSize="small" />
+                                                </IconButton>
+                                            </Box>
+                                        </Box>
                                         {evento.descricao && <Typography sx={{ whiteSpace: 'pre-wrap' }}>{evento.descricao}</Typography>}
-                                        {evento.anexoUrl && (
-                                            <Button
-                                                size="small" startIcon={<AttachFileIcon />}
-                                                href={evento.anexoUrl} target="_blank"
-                                                download={evento.anexoNome || evento.titulo}
-                                            >
-                                                Ver Anexo {evento.anexoNome && `(${evento.anexoNome})`}
-                                            </Button>
-                                        )}
                                     </Paper>
                                 </TimelineContent>
                             </TimelineItem>

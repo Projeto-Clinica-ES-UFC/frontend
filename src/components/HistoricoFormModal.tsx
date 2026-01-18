@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent } from 'react';
+import { useState, useEffect } from 'react';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Dialog from '@mui/material/Dialog';
@@ -8,17 +8,15 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Box from '@mui/material/Box';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel'; // Importação necessária
-import Select from '@mui/material/Select'; // Importação necessária
-import Typography from '@mui/material/Typography';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
 
 // A "forma" de um evento do histórico (simplificada para o formulário)
 interface IHistoricoEventoForm {
     data: string;
-    tipo: 'Consulta' | 'Avaliação' | 'Anexo' | 'Observação';
+    tipo: 'Consulta' | 'Avaliação' | 'Observação';
     titulo: string;
     descricao?: string;
-    anexo?: File | null; // Para guardar o ficheiro selecionado
 }
 
 // Propriedades do Modal
@@ -26,38 +24,26 @@ interface HistoricoFormModalProps {
     open: boolean;
     onClose: () => void;
     // A função onSave recebe os dados do formulário e o ID do paciente
-    onSave: (eventoData: IHistoricoEventoForm, pacienteId: number) => void; 
+    onSave: (eventoData: IHistoricoEventoForm, pacienteId: number) => void;
     pacienteId: number; // Precisamos de saber a qual paciente adicionar
 }
 
 export const HistoricoFormModal = ({ open, onClose, onSave, pacienteId }: HistoricoFormModalProps) => {
     // Estados para o formulário
-    const [data, setData] = useState(new Date().toLocaleDateString('sv-SE')); // Data atual por defeito
-    const [tipo, setTipo] = useState<'Consulta' | 'Avaliação' | 'Anexo' | 'Observação'>('Consulta');
+    const [data, setData] = useState(new Date().toISOString().split('T')[0]); // Data atual por defeito (YYYY-MM-DD)
+    const [tipo, setTipo] = useState<'Consulta' | 'Avaliação' | 'Observação'>('Consulta');
     const [titulo, setTitulo] = useState('');
     const [descricao, setDescricao] = useState('');
-    const [anexo, setAnexo] = useState<File | null>(null);
 
     // Limpa o formulário sempre que o modal abre
     useEffect(() => {
         if (open) {
-            setData(new Date().toLocaleDateString('sv-SE'));
+            setData(new Date().toISOString().split('T')[0]);
             setTipo('Consulta');
             setTitulo('');
             setDescricao('');
-            setAnexo(null);
         }
     }, [open]);
-
-    const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files && event.target.files[0]) {
-            setAnexo(event.target.files[0]);
-            // Se o tipo for 'Anexo' e o título estiver vazio, preenche com o nome do ficheiro
-            if (tipo === 'Anexo' && !titulo) {
-                setTitulo(event.target.files[0].name);
-            }
-        }
-    };
 
     const handleSave = () => {
         const eventoData: IHistoricoEventoForm = {
@@ -65,7 +51,6 @@ export const HistoricoFormModal = ({ open, onClose, onSave, pacienteId }: Histor
             tipo,
             titulo,
             descricao,
-            anexo,
         };
         onSave(eventoData, pacienteId);
     };
@@ -86,7 +71,7 @@ export const HistoricoFormModal = ({ open, onClose, onSave, pacienteId }: Histor
                         InputLabelProps={{ shrink: true }}
                         required
                     />
-                     <FormControl fullWidth required>
+                    <FormControl fullWidth required>
                         <InputLabel id="tipo-label">Tipo de Registro</InputLabel>
                         <Select
                             labelId="tipo-label"
@@ -98,7 +83,6 @@ export const HistoricoFormModal = ({ open, onClose, onSave, pacienteId }: Histor
                             <MenuItem value="Consulta">Consulta</MenuItem>
                             <MenuItem value="Avaliação">Avaliação</MenuItem>
                             <MenuItem value="Observação">Observação</MenuItem>
-                            <MenuItem value="Anexo">Anexo</MenuItem>
                         </Select>
                     </FormControl>
                     <TextField
@@ -122,26 +106,6 @@ export const HistoricoFormModal = ({ open, onClose, onSave, pacienteId }: Histor
                         value={descricao}
                         onChange={(e) => setDescricao(e.target.value)}
                     />
-                    {/* Campo de Anexo só aparece se o tipo for 'Anexo' */}
-                    {tipo === 'Anexo' && (
-                         <Button
-                            variant="outlined"
-                            component="label" // Faz o botão funcionar como um label para o input
-                         >
-                             Selecionar Anexo
-                             <input 
-                                type="file" 
-                                hidden 
-                                onChange={handleFileChange} 
-                             />
-                         </Button>
-                    )}
-                    {/* Mostra o nome do ficheiro selecionado */}
-                    {anexo && (
-                        <Typography variant="body2" color="text.secondary">
-                            Ficheiro selecionado: {anexo.name}
-                        </Typography>
-                    )}
                 </Box>
             </DialogContent>
             <DialogActions>

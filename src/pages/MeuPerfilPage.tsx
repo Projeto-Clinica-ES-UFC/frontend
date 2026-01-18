@@ -7,156 +7,219 @@ import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Alert from '@mui/material/Alert';
-import Divider from '@mui/material/Divider';
+import Grid from '@mui/material/Grid';
 
 import { usersService } from '../services/rest-client';
 
 // Ícones
 import SaveIcon from '@mui/icons-material/Save';
-
-// Interface para o payload de atualização
-interface IUserPayload {
-    name: string;
-    email: string;
-    password?: string;
-}
+import LockResetIcon from '@mui/icons-material/LockReset';
 
 export const MeuPerfilPage = () => {
     const { user, updateUser } = useAuth();
 
-    // Estados
+    // --- State: Dados Pessoais ---
     const [nome, setNome] = useState(user?.name || '');
     const [email, setEmail] = useState(user?.email || '');
+    const [profileLoading, setProfileLoading] = useState(false);
+    const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+    // --- State: Alterar Senha ---
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [passwordLoading, setPasswordLoading] = useState(false);
+    const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-    // Feedback
-    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-    const [loading, setLoading] = useState(false);
+    // --- Handlers ---
 
-    const handleSave = async () => {
-        setMessage(null);
+    const handleSaveProfile = async () => {
+        setProfileMessage(null);
 
-        // Validação básica
         if (!nome || !email) {
-            setMessage({ type: 'error', text: "Nome e Email são obrigatórios." });
+            setProfileMessage({ type: 'error', text: "Nome e Email são obrigatórios." });
             return;
         }
 
-        if (password && password !== confirmPassword) {
-            setMessage({ type: 'error', text: "As senhas não coincidem." });
+        if (nome.length < 2 || nome.length > 100) {
+            setProfileMessage({ type: 'error', text: "Nome deve ter entre 2 e 100 caracteres." });
             return;
         }
 
-        setLoading(true);
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setProfileMessage({ type: 'error', text: "Formato de email inválido." });
+            return;
+        }
+
+        setProfileLoading(true);
 
         try {
-            // 1. CORREÇÃO: Usando a interface em vez de any
-            const payload: IUserPayload = {
-                name: nome,
-                email: email,
-                // photoURL: photoPreview // Descomente se o backend suportar salvar URL
-            };
-
-            // Só envia senha se o usuário digitou algo
-            if (password) {
-                payload.password = password;
-            }
-
-            // 2. Envia para o Backend (PUT /users/:id)
             if (!user?.id) throw new Error("ID do usuário não encontrado.");
 
-            await usersService.update(user.id, payload as Record<string, unknown>);
-
-            // 3. Atualiza o Contexto Global (Frontend)
-            updateUser({
+            const payload = {
                 name: nome,
-                email: email
-            });
+                email: email,
+                // photoURL...
+            };
 
-            setMessage({ type: 'success', text: "Perfil atualizado com sucesso!" });
+            await usersService.update(user.id, payload);
+            updateUser({ name: nome, email: email });
 
-            // Limpa campos de senha
+            setProfileMessage({ type: 'success', text: "Dados atualizados com sucesso!" });
+
+        } catch (error: any) {
+            console.error("Erro ao salvar perfil:", error);
+            const errorMessage = error.message || "Falha ao salvar dados. Tente novamente.";
+            setProfileMessage({ type: 'error', text: errorMessage });
+        } finally {
+            setProfileLoading(false);
+        }
+    };
+
+    const handleChangePassword = async () => {
+        setPasswordMessage(null);
+
+        if (!password) {
+            setPasswordMessage({ type: 'error', text: "Digite a nova senha." });
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            setPasswordMessage({ type: 'error', text: "As senhas não coincidem." });
+            return;
+        }
+
+        setPasswordLoading(true);
+
+        try {
+            if (!user?.id) throw new Error("ID do usuário não encontrado.");
+
+            await usersService.update(user.id, { password });
+
+            setPasswordMessage({ type: 'success', text: "Senha alterada com sucesso!" });
             setPassword('');
             setConfirmPassword('');
 
         } catch (error) {
-            console.error("Erro ao salvar:", error);
-            setMessage({ type: 'error', text: "Falha ao salvar alterações. Tente novamente." });
+            console.error("Erro ao alterar senha:", error);
+            setPasswordMessage({ type: 'error', text: "Falha ao alterar senha. Tente novamente." });
         } finally {
-            setLoading(false);
+            setPasswordLoading(false);
         }
     };
 
     return (
-        <Box>
+        <Box maxWidth="lg" sx={{ mx: 'auto' }}>
             <Typography variant="h4" component="h1" sx={{ mb: 3, textAlign: 'center' }}>
                 Meu Perfil
             </Typography>
 
-            <Paper elevation={3} sx={{ p: 4, maxWidth: 600, mx: 'auto' }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+            <Grid container spacing={4} justifyContent="center">
 
-                    {/* Foto de Perfil */}
-                    <Avatar
-                        sx={{ width: 120, height: 120, fontSize: '3rem', bgcolor: 'primary.main' }}
-                    >
-                        {user?.name?.charAt(0).toUpperCase()}
-                    </Avatar>
+                {/* --- Coluna 1: Dados Pessoais --- */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                    <Paper elevation={3} sx={{ p: 4, height: '100%' }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
 
-                    {/* Dados Pessoais */}
-                    <TextField
-                        fullWidth
-                        label="Nome Completo"
-                        value={nome}
-                        onChange={(e) => setNome(e.target.value)}
-                    />
-                    <TextField
-                        fullWidth
-                        label="Email de Acesso"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                    />
+                            <Typography variant="h6" component="h2" gutterBottom>
+                                Dados Pessoais
+                            </Typography>
 
-                    <Divider sx={{ width: '100%', my: 1 }}>Alterar Senha (Opcional)</Divider>
+                            <Avatar
+                                sx={{ width: 100, height: 100, fontSize: '2.5rem', bgcolor: 'primary.main' }}
+                            >
+                                {user?.name?.charAt(0).toUpperCase()}
+                            </Avatar>
 
-                    <TextField
-                        fullWidth
-                        label="Nova Senha"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Deixe em branco para manter a atual"
-                    />
-                    <TextField
-                        fullWidth
-                        label="Confirmar Nova Senha"
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        disabled={!password}
-                    />
+                            <TextField
+                                fullWidth
+                                label="Name"
+                                value={nome}
+                                onChange={(e) => setNome(e.target.value)}
+                                error={!!profileMessage && profileMessage.type === 'error' && profileMessage.text.includes('Nome')}
+                            />
+                            <TextField
+                                fullWidth
+                                label="Email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                error={!!profileMessage && profileMessage.type === 'error' && profileMessage.text.includes('Email')}
+                            />
 
-                    {/* Mensagens de Feedback */}
-                    {message && (
-                        <Alert severity={message.type} sx={{ width: '100%' }}>
-                            {message.text}
-                        </Alert>
-                    )}
+                            {profileMessage && (
+                                <Alert severity={profileMessage.type} sx={{ width: '100%' }}>
+                                    {profileMessage.text}
+                                </Alert>
+                            )}
 
-                    {/* Botão Salvar */}
-                    <Button
-                        variant="contained"
-                        size="large"
-                        startIcon={<SaveIcon />}
-                        onClick={handleSave}
-                        disabled={loading}
-                        sx={{ mt: 1, px: 4 }}
-                    >
-                        {loading ? "Salvando..." : "Salvar Alterações"}
-                    </Button>
-                </Box>
-            </Paper>
+                            <Button
+                                variant="contained"
+                                size="large"
+                                startIcon={<SaveIcon />}
+                                onClick={handleSaveProfile}
+                                disabled={profileLoading}
+                                fullWidth
+                                sx={{ mt: 'auto' }}
+                            >
+                                {profileLoading ? "Salvando..." : "Salvar Dados"}
+                            </Button>
+                        </Box>
+                    </Paper>
+                </Grid>
+
+                {/* --- Coluna 2: Segurança / Senha --- */}
+                <Grid size={{ xs: 12, md: 5 }}>
+                    <Paper elevation={3} sx={{ p: 4, height: '100%' }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+
+                            <Typography variant="h6" component="h2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <LockResetIcon /> Segurança
+                            </Typography>
+
+                            <Typography variant="body2" color="text.secondary" align="center">
+                                Defina uma nova senha para acessar sua conta.
+                            </Typography>
+
+                            <TextField
+                                fullWidth
+                                label="Nova Senha"
+                                type="password"
+                                autoComplete="new-password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                            <TextField
+                                fullWidth
+                                label="Confirmar Nova Senha"
+                                type="password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                disabled={!password}
+                            />
+
+                            {passwordMessage && (
+                                <Alert severity={passwordMessage.type} sx={{ width: '100%' }}>
+                                    {passwordMessage.text}
+                                </Alert>
+                            )}
+
+                            <Button
+                                variant="outlined"
+                                color="warning"
+                                size="large"
+                                startIcon={<LockResetIcon />}
+                                onClick={handleChangePassword}
+                                disabled={passwordLoading || !password}
+                                fullWidth
+                                sx={{ mt: 'auto' }}
+                            >
+                                {passwordLoading ? "Alterando..." : "Alterar Senha"}
+                            </Button>
+                        </Box>
+                    </Paper>
+                </Grid>
+
+            </Grid>
         </Box>
     );
 };
