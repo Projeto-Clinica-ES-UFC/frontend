@@ -84,10 +84,27 @@ export const HomePage = () => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const dataPac = (dataPacResponse as any).data || dataPacResponse;
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const dataAgList = (dataAg as any).data || dataAg;
+                const listAg = (dataAg as any).data || dataAg;
 
-                if (Array.isArray(dataAgList)) setAgendamentos(dataAgList);
-                if (Array.isArray(dataPac)) setPacientes(dataPac);
+                if (Array.isArray(listAg)) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const mappedAg = listAg.map((a: any) => ({
+                        id: String(a.id),
+                        start: a.start,
+                        status: a.status,
+                        pacienteId: a.patientId ?? a.pacienteId
+                    }));
+                    setAgendamentos(mappedAg);
+                }
+
+                if (Array.isArray(dataPac)) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const mappedPac = dataPac.map((p: any) => ({
+                        id: p.id,
+                        nome: p.name || p.nome
+                    }));
+                    setPacientes(mappedPac);
+                }
 
             } catch (error) {
                 console.error("Erro ao carregar dashboard:", error);

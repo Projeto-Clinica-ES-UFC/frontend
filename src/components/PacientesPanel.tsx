@@ -28,7 +28,6 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import DescriptionIcon from '@mui/icons-material/Description';
-import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
 
 import { PacienteFormModal } from './PacienteFormModal';
@@ -212,13 +211,7 @@ export const PacientesPanel = () => {
                     />
                 </LocalizationProvider>
 
-                <Button
-                    size="small" startIcon={<ClearIcon />}
-                    onClick={() => { setFiltroDataInicio(null); setFiltroDataFim(null); setBusca(''); }}
-                    sx={{ ml: 'auto' }}
-                >
-                    Limpar
-                </Button>
+
             </Paper>
 
             <TableContainer component={Paper} elevation={2} sx={{ borderRadius: 2 }}>
